@@ -1,0 +1,93 @@
+# PowerShell commands to create the complete FastAPI Document Agreement System structure
+
+# Create main project directory
+New-Item -ItemType Directory -Path "backend" -Force
+
+# Change to project directory
+Set-Location "backend"
+
+# Create main app directory structure
+New-Item -ItemType Directory -Path "app" -Force
+New-Item -ItemType Directory -Path "app\auth" -Force
+New-Item -ItemType Directory -Path "app\users" -Force
+New-Item -ItemType Directory -Path "app\documents" -Force
+New-Item -ItemType Directory -Path "app\messaging" -Force
+New-Item -ItemType Directory -Path "app\payments" -Force
+New-Item -ItemType Directory -Path "app\wallet" -Force
+New-Item -ItemType Directory -Path "app\utils" -Force
+New-Item -ItemType Directory -Path "app\websocket" -Force
+
+# Create upload directories
+New-Item -ItemType Directory -Path "uploads" -Force
+New-Item -ItemType Directory -Path "uploads\profile_pics" -Force
+New-Item -ItemType Directory -Path "uploads\signatures" -Force
+New-Item -ItemType Directory -Path "uploads\eye_scans" -Force
+New-Item -ItemType Directory -Path "uploads\fingerprints" -Force
+New-Item -ItemType Directory -Path "uploads\documents" -Force
+
+# Create main app files
+New-Item -ItemType File -Path "app\__init__.py" -Force
+New-Item -ItemType File -Path "app\main.py" -Force
+New-Item -ItemType File -Path "app\config.py" -Force
+New-Item -ItemType File -Path "app\database.py" -Force
+
+# Create auth module files
+New-Item -ItemType File -Path "app\auth\__init__.py" -Force
+New-Item -ItemType File -Path "app\auth\routes.py" -Force
+New-Item -ItemType File -Path "app\auth\models.py" -Force
+New-Item -ItemType File -Path "app\auth\utils.py" -Force
+
+# Create users module files
+New-Item -ItemType File -Path "app\users\__init__.py" -Force
+New-Item -ItemType File -Path "app\users\routes.py" -Force
+New-Item -ItemType File -Path "app\users\models.py" -Force
+New-Item -ItemType File -Path "app\users\schemas.py" -Force
+
+# Create documents module files
+New-Item -ItemType File -Path "app\documents\__init__.py" -Force
+New-Item -ItemType File -Path "app\documents\routes.py" -Force
+New-Item -ItemType File -Path "app\documents\models.py" -Force
+New-Item -ItemType File -Path "app\documents\schemas.py" -Force
+
+# Create messaging module files
+New-Item -ItemType File -Path "app\messaging\__init__.py" -Force
+New-Item -ItemType File -Path "app\messaging\routes.py" -Force
+New-Item -ItemType File -Path "app\messaging\models.py" -Force
+New-Item -ItemType File -Path "app\messaging\schemas.py" -Force
+
+# Create payments module files
+New-Item -ItemType File -Path "app\payments\__init__.py" -Force
+New-Item -ItemType File -Path "app\payments\routes.py" -Force
+New-Item -ItemType File -Path "app\payments\models.py" -Force
+New-Item -ItemType File -Path "app\payments\schemas.py" -Force
+
+# Create wallet module files
+New-Item -ItemType File -Path "app\wallet\__init__.py" -Force
+New-Item -ItemType File -Path "app\wallet\routes.py" -Force
+New-Item -ItemType File -Path "app\wallet\models.py" -Force
+New-Item -ItemType File -Path "app\wallet\schemas.py" -Force
+
+# Create utils module files
+New-Item -ItemType File -Path "app\utils\__init__.py" -Force
+New-Item -ItemType File -Path "app\utils\file_handler.py" -Force
+New-Item -ItemType File -Path "app\utils\blockchain.py" -Force
+New-Item -ItemType File -Path "app\utils\ai_forgery.py" -Force
+New-Item -ItemType File -Path "app\utils\helpers.py" -Force
+
+# Create websocket module files
+New-Item -ItemType File -Path "app\websocket\__init__.py" -Force
+New-Item -ItemType File -Path "app\websocket\manager.py" -Force
+
+# Create root level files
+New-Item -ItemType File -Path "requirements.txt" -Force
+New-Item -ItemType File -Path ".env" -Force
+New-Item -ItemType File -Path "README.md" -Force
+
+# Display completion message
+Write-Host "✅ FastAPI Document Agreement System structure created successfully!" -ForegroundColor Green
+Write-Host "📁 Project created in: $(Get-Location)" -ForegroundColor Cyan
+Write-Host "📝 All files and folders are now ready for development" -ForegroundColor Yellow
+
+# Optional: Display the created structure
+Write-Host "`n📋 Created Structure:" -ForegroundColor Magenta
+tree /F

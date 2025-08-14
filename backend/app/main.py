@@ -1,0 +1,79 @@
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
+import os
+
+from app.database import connect_to_mongo, close_mongo_connection
+from app.config import settings
+
+from app.auth.routes import auth_router
+from app.users.routes import users_router
+from app.documents.routes import documents_router
+from app.messaging.routes import messaging_router
+from app.payments.routes import payments_router
+from app.wallet.routes import wallet_router
+from app.websocket.manager import websocket_router
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await connect_to_mongo()
+    
+    # Create upload directories
+    os.makedirs(f"{settings.upload_dir}/profile_pics", exist_ok=True)
+    os.makedirs(f"{settings.upload_dir}/signatures", exist_ok=True)
+    os.makedirs(f"{settings.upload_dir}/eye_scans", exist_ok=True)
+    os.makedirs(f"{settings.upload_dir}/fingerprints", exist_ok=True)
+    os.makedirs(f"{settings.upload_dir}/documents", exist_ok=True)
+    
+    yield
+    
+    # Shutdown
+    await close_mongo_connection()
+
+app = FastAPI(
+    title="Document Agreement System",
+    description="Multi-user document agreement system with blockchain and AI verification",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Static files
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# Include routers
+app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(users_router, prefix="/api/users", tags=["Users"])
+app.include_router(documents_router, prefix="/api/documents", tags=["Documents"])
+app.include_router(messaging_router, prefix="/api/messaging", tags=["Messaging"])
+app.include_router(payments_router, prefix="/api/payments", tags=["Payments"])
+app.include_router(wallet_router, prefix="/api/wallet", tags=["Wallet"])
+app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
+
+@app.get("/")
+async def root():
+    return {"message": "Document Agreement System API"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8005,
+        reload=True,
+        log_level="info"
+    )
