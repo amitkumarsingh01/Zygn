@@ -82,7 +82,7 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 sm:px-6 lg:px-8">
       {/* Profile Completion Banner */}
       {user && (() => {
         const completionStatus = checkProfileCompletion(user);
@@ -116,55 +116,42 @@ const Dashboard: React.FC = () => {
       })()}
 
       {/* Header */}
-      <div className="sm:flex sm:items-center sm:justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="mt-2 text-sm text-gray-700">
             Welcome back, {user?.name}! Here's an overview of your documents and agreements.
           </p>
         </div>
-                 <div className="mt-4 sm:mt-0 flex space-x-3">
-           {/* <button
-             onClick={fetchDocuments}
-             disabled={isLoading}
-             className="btn-secondary inline-flex items-center"
-           >
-             {isLoading ? (
-               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-             ) : (
-               <FileText className="h-4 w-4 mr-2" />
-             )}
-             {isLoading ? 'Refreshing...' : 'Refresh'}
-           </button> */}
-           
-           <Link
-             to="/document/create"
-             className="btn-primary inline-flex items-center"
-           >
-             <Plus className="h-4 w-4 mr-2" />
-             Create Document
-           </Link>
-           
-           <Link
-             to="/document/join"
-             className="btn-secondary inline-flex items-center"
-           >
-             <Users className="h-4 w-4 mr-2" />
-             Join Document
-           </Link>
-         </div>
+        <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
+          <Link
+            to="/document/create"
+            className="btn-primary inline-flex items-center justify-center w-full sm:w-auto"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Document
+          </Link>
+          
+          <Link
+            to="/document/join"
+            className="btn-secondary inline-flex items-center justify-center w-full sm:w-auto"
+          >
+            <Users className="h-4 w-4 mr-2" />
+            Join Document
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
         <div className="card">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <FileText className="h-8 w-8 text-primary-600" />
+              <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Total Documents</p>
-              <p className="text-2xl font-semibold text-gray-900">{documents.length}</p>
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-500">Total Documents</p>
+              <p className="text-lg sm:text-2xl font-semibold text-gray-900">{documents.length}</p>
             </div>
           </div>
         </div>
@@ -172,11 +159,11 @@ const Dashboard: React.FC = () => {
         <div className="card">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <CheckCircle className="h-8 w-8 text-green-600" />
+              <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Approved</p>
-              <p className="text-2xl font-semibold text-gray-900">
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-500">Approved</p>
+              <p className="text-lg sm:text-2xl font-semibold text-gray-900">
                 {documents.filter(doc => doc.status === 'approved').length}
               </p>
             </div>
@@ -186,11 +173,11 @@ const Dashboard: React.FC = () => {
         <div className="card">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <AlertCircle className="h-8 w-8 text-yellow-600" />
+              <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Pending</p>
-              <p className="text-2xl font-semibold text-gray-900">
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-500">Pending</p>
+              <p className="text-lg sm:text-2xl font-semibold text-gray-900">
                 {documents.filter(doc => doc.status === 'pending').length}
               </p>
             </div>
@@ -200,11 +187,11 @@ const Dashboard: React.FC = () => {
         <div className="card">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <CheckCircle className="h-8 w-8 text-blue-600" />
+              <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Finalized</p>
-              <p className="text-2xl font-semibold text-gray-900">
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-500">Finalized</p>
+              <p className="text-lg sm:text-2xl font-semibold text-gray-900">
                 {documents.filter(doc => doc.status === 'finalized').length}
               </p>
             </div>
@@ -219,8 +206,8 @@ const Dashboard: React.FC = () => {
           className="card hover:shadow-md transition-shadow cursor-pointer group"
         >
           <div className="text-center">
-            <div className="mx-auto h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-blue-200 transition-colors">
-              <MessageCircle className="h-6 w-6 text-blue-600" />
+            <div className="mx-auto h-10 w-10 sm:h-12 sm:w-12 bg-blue-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-blue-200 transition-colors">
+              <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
             </div>
             <h3 className="text-sm font-medium text-gray-900">Chats</h3>
             <p className="text-xs text-gray-500 mt-1">Connect with other users</p>
@@ -232,8 +219,8 @@ const Dashboard: React.FC = () => {
           className="card hover:shadow-md transition-shadow cursor-pointer group"
         >
           <div className="text-center">
-            <div className="mx-auto h-12 w-12 bg-green-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-green-200 transition-colors">
-              <CreditCard className="h-6 w-6 text-green-600" />
+            <div className="mx-auto h-10 w-10 sm:h-12 sm:w-12 bg-green-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-green-200 transition-colors">
+              <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
             </div>
             <h3 className="text-sm font-medium text-gray-900">Wallet</h3>
             <p className="text-xs text-gray-500 mt-1">Manage your funds</p>
@@ -245,36 +232,23 @@ const Dashboard: React.FC = () => {
           className="card hover:shadow-md transition-shadow cursor-pointer group"
         >
           <div className="text-center">
-            <div className="mx-auto h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-purple-200 transition-colors">
-              <User className="h-6 w-6 text-purple-600" />
+            <div className="mx-auto h-10 w-10 sm:h-12 sm:w-12 bg-purple-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-purple-200 transition-colors">
+              <User className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
             </div>
             <h3 className="text-sm font-medium text-gray-900">Profile</h3>
             <p className="text-xs text-gray-500 mt-1">Update your information</p>
           </div>
         </Link>
-
-
-
-        {/* <div className="card hover:shadow-md transition-shadow cursor-pointer group">
-          <div className="text-center">
-            <div className="mx-auto h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-orange-200 transition-colors">
-              <DollarSign className="h-6 w-6 text-orange-600" />
-            </div>
-            <h3 className="text-sm font-medium text-gray-900">Payment Gateway</h3>
-            <p className="text-xs text-gray-500 mt-1">Manage document payments</p>
-            <p className="text-xs text-gray-400 mt-1">Click on any document</p>
-          </div>
-        </div> */}
       </div>
 
       {/* Documents List */}
       <div className="card">
-                 <div className="flex items-center justify-between mb-6">
-           <h2 className="text-lg font-medium text-gray-900">All Documents</h2>
-           <div className="text-sm text-gray-500">
-             Showing {documents.length} document{documents.length !== 1 ? 's' : ''}
-           </div>
-         </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-2 sm:space-y-0">
+          <h2 className="text-lg font-medium text-gray-900">All Documents</h2>
+          <div className="text-sm text-gray-500">
+            Showing {documents.length} document{documents.length !== 1 ? 's' : ''}
+          </div>
+        </div>
 
         {documents.length === 0 ? (
           <div className="text-center py-12">
@@ -294,88 +268,153 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Document
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Payment
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                                 {documents.map((document) => (
-                  <tr key={document._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {document.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Code: {document.document_code}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(document.status)}`}>
-                        {getStatusIcon(document.status)}
-                        <span className="ml-1 capitalize">{document.status}</span>
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Link
-                        to={`/document/${document._id}/payment`}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-blue-600 bg-blue-100 hover:bg-blue-200"
-                      >
-                        <CreditCard className="h-3 w-3 mr-1" />
-                        Manage
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {document.location || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(document.created_at)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <Link
-                          to={`/document/${document._id}`}
-                          className="text-primary-600 hover:text-primary-900"
-                          title="View Document"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                        {document.involved_users.length > 1 && (
-                          <Link
-                            to={`/chat/${document.involved_users.find(id => id !== user?.user_id)}`}
-                            className="text-primary-600 hover:text-primary-900"
-                            title="Chat"
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                          </Link>
-                        )}
-                      </div>
-                    </td>
+          <div>
+            {/* Desktop Table View */}
+            <div className="hidden lg:block overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Document
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Payment
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Location
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {documents.map((document) => (
+                    <tr key={document._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {document.name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            Code: {document.document_code}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(document.status)}`}>
+                          {getStatusIcon(document.status)}
+                          <span className="ml-1 capitalize">{document.status}</span>
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Link
+                          to={`/document/${document._id}/payment`}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-blue-600 bg-blue-100 hover:bg-blue-200"
+                        >
+                          <CreditCard className="h-3 w-3 mr-1" />
+                          Manage
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {document.location || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(document.created_at)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <Link
+                            to={`/document/${document._id}`}
+                            className="text-primary-600 hover:text-primary-900"
+                            title="View Document"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                          {document.involved_users.length > 1 && (
+                            <Link
+                              to={`/chat/${document.involved_users.find(id => id !== user?.user_id)}`}
+                              className="text-primary-600 hover:text-primary-900"
+                              title="Chat"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </Link>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="lg:hidden space-y-4">
+              {documents.map((document) => (
+                <div key={document._id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-gray-900 truncate">
+                        {document.name}
+                      </h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Code: {document.document_code}
+                      </p>
+                    </div>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 flex-shrink-0 ${getStatusColor(document.status)}`}>
+                      {getStatusIcon(document.status)}
+                      <span className="ml-1 capitalize">{document.status}</span>
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-xs text-gray-500 mb-3">
+                    <div className="flex items-center">
+                      <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                      <span className="truncate">{document.location || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Calendar className="h-3 w-3 mr-1 flex-shrink-0" />
+                      <span>{formatDate(document.created_at)}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <Link
+                      to={`/document/${document._id}/payment`}
+                      className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-100 hover:bg-blue-200"
+                    >
+                      <CreditCard className="h-3 w-3 mr-1" />
+                      Payment
+                    </Link>
+                    
+                    <div className="flex space-x-2">
+                      <Link
+                        to={`/document/${document._id}`}
+                        className="text-primary-600 hover:text-primary-900 p-1"
+                        title="View Document"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                      {document.involved_users.length > 1 && (
+                        <Link
+                          to={`/chat/${document.involved_users.find(id => id !== user?.user_id)}`}
+                          className="text-primary-600 hover:text-primary-900 p-1"
+                          title="Chat"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -173,7 +173,7 @@ const Chat: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="card mb-6">
         <div className="flex items-center space-x-4">
@@ -194,14 +194,15 @@ const Chat: React.FC = () => {
           
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-medium text-gray-900">{otherUser.name}</h1>
-            <div className="flex items-center space-x-4 text-sm text-gray-500">
+            {/* Mobile: Stack vertically, Desktop: Horizontal */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-sm text-gray-500 space-y-1 sm:space-y-0">
               <div className="flex items-center">
                 <Phone className="h-4 w-4 mr-1" />
-                {otherUser.phone_no}
+                <span className="truncate">{otherUser.phone_no}</span>
               </div>
               <div className="flex items-center">
                 <Mail className="h-4 w-4 mr-1" />
-                {otherUser.email}
+                <span className="truncate">{otherUser.email}</span>
               </div>
             </div>
           </div>
@@ -210,7 +211,7 @@ const Chat: React.FC = () => {
 
       {/* Chat Messages */}
       <div className="card">
-        <div className="h-96 overflow-y-auto p-4 space-y-4">
+        <div className="h-80 sm:h-96 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
             <div className="text-center py-8">
               <MessageCircle className="mx-auto h-12 w-12 text-gray-400" />
@@ -239,12 +240,12 @@ const Chat: React.FC = () => {
 
                   {/* Message */}
                   <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    <div className={`max-w-[75%] sm:max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                       isOwnMessage
                         ? 'bg-primary-600 text-white'
                         : 'bg-gray-100 text-gray-900'
                     }`}>
-                      <p className="text-sm">{message.content}</p>
+                      <p className="text-sm break-words">{message.content}</p>
                       <p className={`text-xs mt-1 ${
                         isOwnMessage ? 'text-primary-100' : 'text-gray-500'
                       }`}>
@@ -273,7 +274,7 @@ const Chat: React.FC = () => {
             <button
               type="submit"
               disabled={isSending || !newMessage.trim()}
-              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
               {isSending ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>

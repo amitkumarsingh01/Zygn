@@ -356,7 +356,7 @@ const DocumentCreate: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="mb-8">
         <button
@@ -366,13 +366,13 @@ const DocumentCreate: React.FC = () => {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">Create New Document</h1>
-        <p className="mt-2 text-gray-600">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Create New Document</h1>
+        <p className="mt-2 text-sm sm:text-base text-gray-600">
           Upload your documents and set up the agreement details. Share the generated code with other parties to join.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
         {/* Basic Information */}
         <div className="card">
           <h2 className="text-lg font-medium text-gray-900 mb-6 flex items-center">
@@ -380,7 +380,7 @@ const DocumentCreate: React.FC = () => {
             Basic Information
           </h2>
           
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                 Document Name *
@@ -456,7 +456,7 @@ const DocumentCreate: React.FC = () => {
             </div>
 
             {/* Agreement with User Section */}
-            <div className="col-span-2 border-t pt-6 mt-6">
+            <div className="col-span-1 sm:col-span-2 border-t pt-6 mt-6">
               <h3 className="text-md font-medium text-gray-900 mb-4">Start Agreement with Another User (Optional)</h3>
               
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -476,7 +476,7 @@ const DocumentCreate: React.FC = () => {
                   />
                 </div>
 
-                <div className="col-span-2">
+                <div className="col-span-1 sm:col-span-2">
                   <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
                     <strong>Note:</strong> Daily rate is automatically set to <span className="font-semibold">1 coin per day</span>. 
                     Total days and amount will be calculated automatically based on your start and end dates.
@@ -524,16 +524,16 @@ const DocumentCreate: React.FC = () => {
           {/* Drag and drop area */}
           <div
             {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+            className={`border-2 border-dashed rounded-lg p-4 sm:p-8 text-center cursor-pointer transition-colors ${
               isDragActive
                 ? 'border-primary-400 bg-primary-50'
                 : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'
             }`}
           >
             <input {...getInputProps()} />
-            <Upload className="mx-auto h-12 w-12 text-gray-400" />
+            <Upload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
             <div className="mt-4">
-              <p className="text-lg font-medium text-gray-900">
+              <p className="text-base sm:text-lg font-medium text-gray-900">
                 {isDragActive ? 'Drop files here' : 'Or drag & drop files here'}
               </p>
               <p className="text-sm text-gray-500 mt-1">
@@ -552,34 +552,16 @@ const DocumentCreate: React.FC = () => {
                 Uploaded Files ({files.length}):
               </h3>
               
-              {/* Test FormData Button */}
-              {/* <div className="mb-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    console.log('=== Testing FormData Construction ===');
-                    const testFormData = new FormData();
-                    testFormData.append('name', 'test');
-                    testFormData.append('raw_documents', files[0]);
-                    console.log('Test FormData entries:', Array.from(testFormData.entries()));
-                    console.log('Test FormData raw_documents:', testFormData.getAll('raw_documents'));
-                  }}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
-                >
-                  Test FormData Construction
-                </button>
-              </div> */}
-              
               <div className="space-y-2">
                 {files.map((file, index) => (
                   <div
                     key={`${file.name}-${index}`}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                   >
-                    <div className="flex items-center">
-                      <FileText className="h-5 w-5 text-gray-400 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                    <div className="flex items-center min-w-0 flex-1">
+                      <FileText className="h-5 w-5 text-gray-400 mr-3 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
                         <p className="text-xs text-gray-500">
                           {formatFileSize(file.size)} • {file.type || 'Unknown type'}
                         </p>
@@ -588,7 +570,7 @@ const DocumentCreate: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => removeFile(index)}
-                      className="text-red-500 hover:text-red-700"
+                      className="text-red-500 hover:text-red-700 ml-2 flex-shrink-0"
                       title="Remove file"
                     >
                       <X className="h-5 w-5" />
@@ -605,7 +587,7 @@ const DocumentCreate: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading || files.length === 0 || !formData.name.trim()}
-            className="btn-primary inline-flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary inline-flex items-center disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
           >
             {isLoading ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
