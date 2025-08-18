@@ -139,7 +139,7 @@ const Layout: React.FC = () => {
           <div className="flex h-20 items-center justify-between px-6 bg-gradient-to-r from-primary-600 to-primary-700">
             <div className="flex items-center space-x-3">
               <img 
-                src="/public/assets/logo.png" 
+                src="/assets/logo.png" 
                 alt="Zygn Logo" 
                 className="h-10 w-10 object-contain"
               />
@@ -245,7 +245,7 @@ const Layout: React.FC = () => {
           <div className="flex items-center justify-between h-20 px-6 bg-gradient-to-r from-primary-600 to-primary-700">
             <div className="flex items-center space-x-3">
               <img 
-                src="/public/assets/logo.png" 
+                src="/assets/logo.png" 
                 alt="Zygn Logo" 
                 className="h-10 w-10 object-contain"
               />
