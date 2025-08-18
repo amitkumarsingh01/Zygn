@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException
-from starlette.middleware.multipart import MultipartMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -49,12 +48,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Increase upload limits to prevent 413 for large PDFs
-app.add_middleware(
-    MultipartMiddleware,
-    max_file_size=50 * 1024 * 1024,          # 50 MB per file
-    max_form_memory_size=200 * 1024 * 1024   # 200 MB total form data in memory
-)
+# Note: We avoid custom multipart middleware to keep compatibility across Starlette versions.
 
 # Static files
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

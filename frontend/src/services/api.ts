@@ -102,8 +102,8 @@ export const documentsAPI = {
   getFinalPdf: (documentId: string) => 
     api.get<Blob>(`/documents/${documentId}/final-pdf`, { responseType: 'blob' as any }),
 
-  finalizeDocument: (documentId: string, finalDocuments: FormData) => 
-    api.patch<{ message: string }>(`/documents/${documentId}/finalize`, finalDocuments), // Works with both document_id and document_code
+  finalizeDocument: (documentId: string, finalDocuments?: FormData) => 
+    api.patch<{ message: string }>(`/documents/${documentId}/finalize`, finalDocuments ?? new FormData()), // Works with both document_id and document_code
   
   // Simple agreement initiation
   initiateAgreement: (data: { target_user_char_id: string; name: string; location?: string }) => 
