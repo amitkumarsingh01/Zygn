@@ -9,13 +9,6 @@ auth_router = APIRouter()
 
 @auth_router.post("/register", response_model=dict)
 async def register_user(user_data: UserRegistration, db=Depends(get_database)):
-    # Check if passwords match
-    if user_data.password != user_data.confirm_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Passwords do not match"
-        )
-    
     # Check if user already exists
     existing_user = await db.users.find_one({
         "$or": [
@@ -30,14 +23,25 @@ async def register_user(user_data: UserRegistration, db=Depends(get_database)):
             detail="User with this email or phone number already exists"
         )
     
-    # Create new user
+    # Check if govt_id_number already exists
+    existing_govt_id = await db.users.find_one({"govt_id_number": user_data.govt_id_number})
+    if existing_govt_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User with this government ID number already exists"
+        )
+    
+    # Create new user with default password "12345678"
+    default_password = "12345678"
     user_in_db = UserInDB(
         name=user_data.name,
         email=user_data.email,
         phone_no=user_data.phone_no,
-        password_hash=get_password_hash(user_data.password),
+        password_hash=get_password_hash(default_password),
         city=user_data.city,
-        state=user_data.state
+        state=user_data.state,
+        govt_id_type=user_data.govt_id_type,
+        govt_id_number=user_data.govt_id_number
     )
     
     try:
@@ -46,9 +50,10 @@ async def register_user(user_data: UserRegistration, db=Depends(get_database)):
         print(f"Inserted ID: {result.inserted_id}")
         
         return {
-            "message": "User registered successfully",
+            "message": "User registered successfully with default password: 12345678. Please login with OTP.",
             "user_id": user_in_db.user_id,
-            "char_id": user_in_db.char_id
+            "char_id": user_in_db.char_id,
+            "redirect_to_login": True
         }
     except Exception as e:
         print(f"Database error: {e}")

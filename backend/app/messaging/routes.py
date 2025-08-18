@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import List
+from typing import List, Optional
 from app.messaging.models import MessageCreate, MessageResponse, MessageInDB
 from app.auth.utils import verify_token
 from app.database import get_database
 from app.websocket.manager import connection_manager
+from app.utils.file_handler import save_uploaded_file
 from bson import ObjectId
 from datetime import datetime, timezone
 
@@ -23,23 +24,63 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 @messaging_router.post("/send", response_model=dict)
 async def send_message(
-    message_data: MessageCreate,
+    receiver_id: str = Form(...),
+    content: str = Form(...),
+    attachment: Optional[UploadFile] = File(None),
     current_user=Depends(get_current_user),
     db=Depends(get_database)
 ):
-    # Verify receiver exists
-    receiver = await db.users.find_one({"user_id": message_data.receiver_id})
+    print(f"=== Send Message Request ===")
+    print(f"Receiver ID/Char ID: {receiver_id}")
+    print(f"Current user: {current_user['user_id']}")
+    
+    # Try to find receiver by user_id first, then by char_id
+    receiver = None
+    
+    # Check if receiver_id is a valid user_id (24-character hex string)
+    try:
+        if len(receiver_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in receiver_id):
+            print(f"Searching by user_id: {receiver_id}")
+            receiver = await db.users.find_one({"user_id": receiver_id})
+            if receiver:
+                print(f"Found receiver by user_id: {receiver.get('user_id')}")
+        else:
+            print(f"Not a valid user_id, searching by char_id: {receiver_id}")
+    except Exception as e:
+        print(f"Error checking user_id validity: {e}")
+        pass
+    
+    # If not found by user_id, try to find by char_id
     if not receiver:
+        print(f"Searching by char_id: {receiver_id}")
+        receiver = await db.users.find_one({"char_id": receiver_id})
+        if receiver:
+            print(f"Found receiver by char_id: {receiver.get('char_id')}")
+    
+    if not receiver:
+        print(f"Receiver not found with ID/char_id: {receiver_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Receiver not found"
         )
     
-    # Create message
+    print(f"Found receiver: {receiver.get('user_id')} with char_id: {receiver.get('char_id')}")
+    
+    # Handle file upload if provided
+    attachment_path = None
+    if attachment:
+        filename = await save_uploaded_file(attachment, "message_attachments")
+        attachment_path = f"/uploads/message_attachments/{filename}"
+    
+    # Create message - use the actual user_id from the found receiver
+    actual_receiver_id = receiver["user_id"]
+    print(f"Creating message with receiver_id: {actual_receiver_id}")
+    
     message = MessageInDB(
         sender_id=current_user["user_id"],
-        receiver_id=message_data.receiver_id,
-        content=message_data.content
+        receiver_id=actual_receiver_id,
+        content=content,
+        attachment=attachment_path
     )
     
     result = await db.messages.insert_one(message.dict())
@@ -51,10 +92,11 @@ async def send_message(
             "message_id": str(result.inserted_id),
             "sender_id": current_user["user_id"],
             "sender_name": current_user["name"],
-            "content": message_data.content,
+            "content": content,
+            "attachment": attachment_path,
             "created_at": message.created_at.isoformat()
         },
-        message_data.receiver_id
+        actual_receiver_id
     )
     
     return {
@@ -68,21 +110,80 @@ async def get_conversation(
     current_user=Depends(get_current_user),
     db=Depends(get_database)
 ):
+    print(f"=== Get Conversation Request ===")
+    print(f"User ID/Char ID: {user_id}")
+    print(f"Current user: {current_user['user_id']}")
+    
+    # Try to find user by user_id first, then by char_id
+    target_user = None
+    
+    # Check if user_id is a valid user_id (24-character hex string)
+    try:
+        if len(user_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in user_id):
+            print(f"Searching by user_id: {user_id}")
+            target_user = await db.users.find_one({"user_id": user_id})
+            if target_user:
+                print(f"Found user by user_id: {target_user.get('user_id')}")
+        else:
+            print(f"Not a valid user_id, searching by char_id: {user_id}")
+    except Exception as e:
+        print(f"Error checking user_id validity: {e}")
+        pass
+    
+    # If not found by user_id, try to find by char_id
+    if not target_user:
+        print(f"Searching by char_id: {user_id}")
+        target_user = await db.users.find_one({"char_id": user_id})
+        if target_user:
+            print(f"Found user by char_id: {target_user.get('char_id')}")
+    
+    if not target_user:
+        print(f"User not found with ID/char_id: {user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    actual_user_id = target_user["user_id"]
+    print(f"Found user: {actual_user_id} with char_id: {target_user.get('char_id')}")
+    
     # Get conversation between current user and specified user
     messages = await db.messages.find({
         "$or": [
-            {"sender_id": current_user["user_id"], "receiver_id": user_id},
-            {"sender_id": user_id, "receiver_id": current_user["user_id"]}
+            {"sender_id": current_user["user_id"], "receiver_id": actual_user_id},
+            {"sender_id": actual_user_id, "receiver_id": current_user["user_id"]}
         ]
     }).sort("created_at", 1).to_list(None)
     
     # Mark messages as read
     await db.messages.update_many(
-        {"sender_id": user_id, "receiver_id": current_user["user_id"], "is_read": False},
+        {"sender_id": actual_user_id, "receiver_id": current_user["user_id"], "is_read": False},
         {"$set": {"is_read": True}}
     )
     
-    return [MessageResponse(**msg, id=str(msg["_id"])) for msg in messages]
+    result = []
+    for msg in messages:
+        try:
+            # Ensure all required fields are present with defaults
+            msg_data = {
+                "id": str(msg["_id"]),  # Use 'id' for the alias mapping
+                "sender_id": msg.get("sender_id", ""),
+                "receiver_id": msg.get("receiver_id", ""),
+                "content": msg.get("content", ""),
+                "attachment": msg.get("attachment"),
+                "created_at": msg.get("created_at", datetime.now(timezone.utc)),
+                "is_read": msg.get("is_read", False)
+            }
+            
+            result.append(MessageResponse(**msg_data))
+            print(f"Successfully processed message: {msg.get('_id')}")
+        except Exception as e:
+            print(f"Error processing message {msg.get('_id', 'unknown')}: {e}")
+            print(f"Message data: {msg}")
+            continue
+    
+    print(f"Returning {len(result)} processed messages")
+    return result
 
 @messaging_router.get("/unread-count")
 async def get_unread_count(current_user=Depends(get_current_user), db=Depends(get_database)):

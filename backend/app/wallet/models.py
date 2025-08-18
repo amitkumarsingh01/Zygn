@@ -29,6 +29,7 @@ class TransactionResponse(BaseModel):
     amount: float
     description: str
     payment_id: Optional[str] = None
+    payment_receipt: Optional[str] = None
     created_at: datetime
     
     class Config:

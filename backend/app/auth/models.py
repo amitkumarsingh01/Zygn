@@ -18,10 +18,10 @@ class UserRegistration(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
     phone_no: str = Field(..., pattern=r'^\+?[1-9]\d{1,14}$')
-    password: str = Field(..., min_length=6)
     city: str = Field(..., min_length=2, max_length=50)
     state: str = Field(..., min_length=2, max_length=50)
-    confirm_password: str
+    govt_id_type: str = Field(..., description="Type of government ID (Aadhar, PAN, Passport, etc.)")
+    govt_id_number: str = Field(..., min_length=5, max_length=20, description="Government ID number")
 
 class UserLogin(BaseModel):
     phone_no: str
@@ -36,6 +36,8 @@ class UserInDB(BaseModel):
     city: str
     state: str
     char_id: str = Field(default_factory=generate_char_id)
+    govt_id_type: str
+    govt_id_number: str
     created_at: datetime = Field(default_factory=get_current_datetime)
     updated_at: datetime = Field(default_factory=get_current_datetime)
     is_active: bool = True

@@ -13,8 +13,8 @@ class UserProfile(BaseModel):
     eye_pic: Optional[str] = None
     fingerprint: Optional[str] = None
     mpin: Optional[str] = Field(None, min_length=4, max_length=6)
-    govtid_type: Optional[str] = None
-    govtid_number: Optional[str] = None
+    govt_id_type: Optional[str] = None
+    govt_id_number: Optional[str] = None
     char_id: str
     status: str = "active"
     is_active: bool = True
@@ -33,6 +33,8 @@ class UserProfileResponse(BaseModel):
     char_id: str
     city: str
     state: str
+    govt_id_type: Optional[str] = None
+    govt_id_number: Optional[str] = None
     status: str
     is_active: bool
     created_at: datetime
@@ -40,3 +42,15 @@ class UserProfileResponse(BaseModel):
     
     class Config:
         populate_by_name = True
+
+class UserListResponse(BaseModel):
+    user_id: str
+    char_id: str
+    name: str
+    email: EmailStr
+    phone_no: str
+    city: str
+    state: str
+    status: str
+    is_active: bool
+    created_at: datetime

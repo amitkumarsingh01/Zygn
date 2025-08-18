@@ -51,6 +51,11 @@ async def create_indexes():
     await messages_collection.create_index([("sender_id", ASCENDING)])
     await messages_collection.create_index([("receiver_id", ASCENDING)])
     await messages_collection.create_index([("created_at", ASCENDING)])
+    
+    # Payment distributions collection indexes
+    payment_distributions_collection = db.database.payment_distributions
+    await payment_distributions_collection.create_index([("document_id", ASCENDING)], unique=True)
+    await payment_distributions_collection.create_index([("document_code", ASCENDING)])
 
 async def get_database():
     return db.database
