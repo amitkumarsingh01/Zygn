@@ -41,7 +41,7 @@ const Login: React.FC = () => {
           <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-8 py-6">
             <div className="flex items-center justify-center">
               <img 
-                src="/public/assets/logo.png" 
+                src="/assets/logo.png" 
                 alt="Zygn Logo" 
                 className="h-16 w-16 object-contain"
               />
