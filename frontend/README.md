@@ -126,7 +126,7 @@ The frontend communicates with the backend through RESTful APIs:
 Create a `.env` file in the frontend directory:
 
 ```env
-VITE_API_BASE_URL=http://localhost:8005/
+VITE_API_BASE_URL=https://zygn.iaks.site/
 VITE_WS_URL=ws://localhost:8005/
 ```
 
@@ -135,7 +135,7 @@ The frontend directly connects to the backend API:
 
 ```typescript
 // services/api.ts
-const API_BASE_URL = 'http://localhost:8005/api';
+const API_BASE_URL = 'https://zygn.iaks.site/api';
 ```
 
 ## Available Scripts

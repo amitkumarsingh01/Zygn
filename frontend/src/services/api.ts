@@ -8,14 +8,13 @@ import {
   Payment,
   LoginData, 
   RegisterData,
-  DocumentFormData,
   JoinDocumentData,
-  PaymentDistribution,
+
   DocumentPaymentSetup,
   PaymentCalculationResponse
 } from '../types';
 
-const API_BASE_URL = 'http://localhost:8005/api';
+const API_BASE_URL = 'https://zygn.iaks.site/api';
 
 // Create axios instance
 const api = axios.create({

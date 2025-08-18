@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { User, AuthState } from '../types';
 import { authAPI, usersAPI } from '../services/api';
 import toast from 'react-hot-toast';
@@ -142,12 +142,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           state: '',
           status: 'active',
           is_active: true,
+          is_admin: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-          profile_pic: null,
-          signature_pic: null,
-          eye_pic: null,
-          fingerprint: null
+          profile_pic: undefined,
+          signature_pic: undefined,
+          eye_pic: undefined,
+          fingerprint: undefined
         };
         
         localStorage.setItem('user', JSON.stringify(user));

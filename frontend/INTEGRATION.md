@@ -7,7 +7,7 @@ This document describes the complete integration between the React TypeScript fr
 ## 🔗 API Integration
 
 ### Base Configuration
-- **Backend URL**: `http://localhost:8005/api`
+- **Backend URL**: `https://zygn.iaks.site/api`
 - **Authentication**: Bearer token-based JWT authentication
 - **CORS**: Configured for cross-origin requests
 

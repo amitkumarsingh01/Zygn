@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, AlertCircle, CheckCircle, User, Camera, Fingerprint, Eye, FileText } from 'lucide-react';
+import { X, AlertCircle, User, Camera, Fingerprint, Eye, FileText } from 'lucide-react';
 import { ProfileCompletionStatus, getFieldDisplayName } from '../utils/profileCompletion';
 
 interface ProfileCompletionModalProps {

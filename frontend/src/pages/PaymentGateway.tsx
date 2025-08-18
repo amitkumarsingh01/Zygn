@@ -2,69 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { documentsAPI, paymentsAPI, walletAPI } from '../services/api';
+import { Document, Payment, PaymentCalculationResponse } from '../types';
 import { toast } from 'react-hot-toast';
 import { 
   CreditCard, 
   Wallet, 
   FileText, 
   DollarSign, 
-  Calendar,
   CheckCircle,
   XCircle,
   Clock,
   ArrowLeft,
-  Users,
-  Calculator,
-  Percent
+  Users
 } from 'lucide-react';
 
-interface Document {
-  _id: string;
-  name: string;
-  description?: string;
-  primary_user: string;
-  involved_users: string[];
-  status: string;
-  created_at: string;
-  final_approval_date?: string;
-  payment_status: string;
-  total_amount: number;
-  daily_rate: number;
-  total_days: number;
-  document_code: string;
-  start_date?: string;
-  end_date?: string;
-}
 
-interface Payment {
-  _id: string;
-  document_id: string;
-  user_id: string;
-  amount: number;
-  status: string;
-  payment_method: string;
-  created_at: string;
-  document_name?: string;
-}
-
-interface PaymentDistribution {
-  user_id: string;
-  percentage: number;
-  amount: number;
-}
-
-interface PaymentCalculationResponse {
-  document_id: string;
-  document_code: string;
-  document_name: string;
-  start_date?: string;
-  end_date?: string;
-  duration_days: number;
-  total_amount: number;
-  payment_status: string;
-  payment_distributions?: PaymentDistribution[];
-  can_finalize: boolean;
-}
 
 const PaymentGateway: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -111,7 +63,7 @@ const PaymentGateway: React.FC = () => {
       console.log('Fetching document with ID:', id);
       const response = await documentsAPI.getDocument(id!);
       console.log('Document response:', response.data);
-      setDocument(response.data);
+      setDocument(response.data as Document);
     } catch (error: any) {
       console.error('Error fetching document:', error);
       throw error;
@@ -135,7 +87,7 @@ const PaymentGateway: React.FC = () => {
       console.log('Fetching payments for document:', id);
       const response = await paymentsAPI.getDocumentPayments(id!);
       console.log('Payments response:', response.data);
-      setPayments(response.data);
+      setPayments(response.data as Payment[]);
     } catch (error: any) {
       console.error('Error fetching payments:', error);
       // Set empty array as fallback
@@ -186,7 +138,7 @@ const PaymentGateway: React.FC = () => {
 
     setIsProcessing(true);
     try {
-      const response = await paymentsAPI.makeDocumentPayment(id!);
+      await paymentsAPI.makeDocumentPayment(id!);
       toast.success('Payment completed successfully!');
       
       // Add a small delay to allow backend processing
@@ -322,11 +274,11 @@ const PaymentGateway: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Duration</p>
-                <p className="text-lg font-semibold text-gray-900">{paymentCalculation?.duration_days || document.total_days} days</p>
+                <p className="text-lg font-semibold text-gray-900">{paymentCalculation?.duration_days || 0} days</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Daily Rate</p>
-                <p className="text-lg font-semibold text-gray-900">₹{document.daily_rate}</p>
+                <p className="text-lg font-semibold text-gray-900">₹1</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Status</p>
@@ -507,12 +459,12 @@ const PaymentGateway: React.FC = () => {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Amount:</span>
-                <span className="font-medium">₹{paymentCalculation?.total_amount || document.total_amount}</span>
+                <span className="font-medium">₹{paymentCalculation?.total_amount || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Paid:</span>
                 <span className="font-medium text-green-600">
-                  ₹{((paymentCalculation?.total_amount || document.total_amount) - remainingAmount).toFixed(2)}
+                  ₹{((paymentCalculation?.total_amount || 0) - remainingAmount).toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -523,7 +475,7 @@ const PaymentGateway: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Progress:</span>
                 <span className="font-medium">
-                  {Math.round((((paymentCalculation?.total_amount || document.total_amount) - remainingAmount) / (paymentCalculation?.total_amount || document.total_amount)) * 100)}%
+                  {Math.round((((paymentCalculation?.total_amount || 0) - remainingAmount) / (paymentCalculation?.total_amount || 0)) * 100)}%
                 </span>
               </div>
             </div>

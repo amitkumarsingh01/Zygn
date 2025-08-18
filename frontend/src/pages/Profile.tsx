@@ -3,9 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { usersAPI } from '../services/api';
 import { 
   User, 
-  Mail, 
-  Phone, 
-  MapPin, 
   Camera, 
   Upload, 
   Save,
@@ -16,7 +13,7 @@ import {
 import toast from 'react-hot-toast';
 
 const Profile: React.FC = () => {
-  const { user, updateUser, updateUserData } = useAuth();
+  const { user, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingProfile, setIsFetchingProfile] = useState(false);
@@ -194,7 +191,7 @@ const Profile: React.FC = () => {
     console.log(`getFilePreview: user object:`, user);
     
     if (imagePath && imagePath.startsWith('/uploads/')) {
-      const fullUrl = `http://localhost:8005${imagePath}`;
+      const fullUrl = `https://zygn.iaks.site${imagePath}`;
       console.log(`getFilePreview: Constructed full URL for ${field}:`, fullUrl);
       return fullUrl;
     }

@@ -50,7 +50,7 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({
   const [inviteCharId, setInviteCharId] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentCalculationResponse | null>(null);
-  const [isLoadingPayment, setIsLoadingPayment] = useState(false);
+
   const [showPaymentSection, setShowPaymentSection] = useState(false);
   const [paymentDistributions, setPaymentDistributions] = useState<PaymentDistribution[]>([]);
 
@@ -62,7 +62,6 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({
   }, [isOpen, isPrimaryUser, documentId]);
 
   const loadPaymentData = async () => {
-    setIsLoadingPayment(true);
     try {
       const response = await paymentsAPI.calculateDocumentPayment(documentId);
       setPaymentData(response.data);
@@ -82,8 +81,6 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({
     } catch (error: any) {
       console.error('Error loading payment data:', error);
       toast.error('Failed to load payment information');
-    } finally {
-      setIsLoadingPayment(false);
     }
   };
 
@@ -112,7 +109,7 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({
     }
   };
 
-  const handleApproveUser = async (userId: string, userName: string) => {
+  const handleApproveUser = async (userId: string) => {
     try {
       const response = await documentUsersAPI.approveUserJoin(documentId, userId);
       toast.success(response.data.message);
@@ -373,7 +370,7 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({
                   <div className="flex gap-2">
                     {/* APPROVE BUTTON */}
                     <button
-                      onClick={() => handleApproveUser(user.user_id, user.name)}
+                      onClick={() => handleApproveUser(user.user_id)}
                       className="text-green-500 hover:text-green-700 p-2 bg-green-50 rounded-lg"
                       title="Approve user"
                     >

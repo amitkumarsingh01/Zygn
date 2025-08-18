@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+
 import { documentsAPI } from '../services/api';
 import { toast } from 'react-hot-toast';
 import { 
@@ -24,7 +24,7 @@ interface PricingConfig {
 }
 
 const PricingManagement: React.FC = () => {
-  const { user } = useAuth();
+
   const navigate = useNavigate();
   const [pricing, setPricing] = useState<PricingConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);

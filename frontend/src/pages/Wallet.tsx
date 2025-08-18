@@ -3,7 +3,6 @@ import { walletAPI } from '../services/api';
 import { Wallet, Transaction } from '../types';
 import { 
   Plus, 
-  Minus, 
   CreditCard, 
   ArrowUpRight, 
   ArrowDownLeft,

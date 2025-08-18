@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { messagingAPI, walletAPI, usersAPI } from '../services/api';
 import { 
   Home, 
-  FileText, 
   Plus, 
   Users, 
   Wallet, 
@@ -14,9 +13,7 @@ import {
   Menu,
   X,
   Bell,
-  CreditCard,
-  AlertTriangle,
-  DollarSign
+  AlertTriangle
 } from 'lucide-react';
 import { checkProfileCompletion } from '../utils/profileCompletion';
 import toast from 'react-hot-toast';
@@ -33,7 +30,7 @@ const Layout: React.FC = () => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
   // Backend URL for profile images
-  const BACKEND_URL = 'http://localhost:8005';
+  const BACKEND_URL = 'https://zygn.iaks.site';
 
   useEffect(() => {
     fetchUnreadCount();

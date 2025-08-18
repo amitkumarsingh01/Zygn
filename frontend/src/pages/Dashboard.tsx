@@ -16,7 +16,7 @@ import {
   MessageCircle,
   CreditCard,
   User,
-  DollarSign,
+
   AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { documentsAPI, messagingAPI, usersAPI } from '../services/api';
-import { Document, User } from '../types';
+import { documentsAPI, usersAPI } from '../services/api';
+import { Document } from '../types';
 import UserManagementModal from '../components/UserManagementModal';
 import { 
   ArrowLeft, 
@@ -13,12 +13,10 @@ import {
   CheckCircle, 
   AlertCircle,
   Clock,
-  Download,
   Eye,
   MessageCircle,
   Upload,
   Lock,
-  Unlock,
   Copy,
   ExternalLink,
   CreditCard,
@@ -105,8 +103,8 @@ const DocumentView: React.FC = () => {
   const { user: currentUser } = useAuth();
   const [document, setDocument] = useState<Document | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isFinalizing, setIsFinalizing] = useState(false);
-  const [finalDocuments, setFinalDocuments] = useState<File[]>([]);
+
+
   const [isAutoFinalizing, setIsAutoFinalizing] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
@@ -135,48 +133,7 @@ const DocumentView: React.FC = () => {
     }
   };
 
-  const handleFinalize = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (finalDocuments.length === 0) {
-      toast.error('Please upload final documents');
-      return;
-    }
 
-    setIsFinalizing(true);
-    try {
-      const formData = new FormData();
-      finalDocuments.forEach(file => {
-        formData.append('final_documents', file);
-      });
-
-      await documentsAPI.finalizeDocument(id!, formData);
-      toast.success('Document finalized successfully!');
-      fetchDocument(); // Refresh document data
-      setFinalDocuments([]);
-    } catch (error: any) {
-      console.error('Finalize document error:', error);
-      
-      // Handle different error response formats
-      let errorMessage = 'Failed to finalize document';
-      
-      if (error.response?.data) {
-        if (error.response.data.detail) {
-          errorMessage = error.response.data.detail;
-        } else if (error.response.data.message) {
-          errorMessage = error.response.data.message;
-        } else if (Array.isArray(error.response.data)) {
-          errorMessage = error.response.data.map((err: any) => err.msg || err.message).join(', ');
-        } else if (typeof error.response.data === 'object') {
-          errorMessage = Object.values(error.response.data).join(', ');
-        }
-      }
-      
-      toast.error(errorMessage);
-    } finally {
-      setIsFinalizing(false);
-    }
-  };
 
   // Auto-generate composed final PDF from backend and upload it
   const handleAutoFinalize = async () => {
@@ -398,7 +355,7 @@ const DocumentView: React.FC = () => {
                     <span className="text-sm text-gray-900">{doc.split('/').pop()}</span>
                   </div>
                                      <button
-                     onClick={() => window.open(`http://localhost:8005${doc}`, '_blank')}
+                     onClick={() => window.open(`https://zygn.iaks.site${doc}`, '_blank')}
                      className="text-primary-600 hover:text-primary-700"
                    >
                      <Eye className="h-4 w-4" />
@@ -420,7 +377,7 @@ const DocumentView: React.FC = () => {
                       <span className="text-sm text-gray-900">{doc.split('/').pop()}</span>
                     </div>
                                          <button
-                       onClick={() => window.open(`http://localhost:8005${doc}`, '_blank')}
+                       onClick={() => window.open(`https://zygn.iaks.site${doc}`, '_blank')}
                        className="text-green-600 hover:text-green-700"
                      >
                        <Eye className="h-4 w-4" />

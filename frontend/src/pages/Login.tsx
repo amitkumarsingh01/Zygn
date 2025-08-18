@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Phone, Lock, ArrowRight, FileText } from 'lucide-react';
+import { Phone, Lock, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Login: React.FC = () => {

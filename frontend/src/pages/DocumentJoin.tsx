@@ -8,7 +8,7 @@ import {
   CheckCircle, 
   AlertCircle,
   Copy,
-  ExternalLink
+
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { checkProfileCompletion } from '../utils/profileCompletion';
