@@ -29,6 +29,25 @@ const Chat: React.FC = () => {
     }
   }, [userId]);
 
+  // Poll for new messages every second
+  useEffect(() => {
+    if (!userId) return;
+    const intervalId = setInterval(() => {
+      fetchMessagesOnly();
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [userId]);
+
+  const fetchMessagesOnly = async () => {
+    try {
+      const messagesResponse = await messagingAPI.getConversation(userId!);
+      setMessages(messagesResponse.data);
+    } catch (error) {
+      // Silently ignore to avoid toast spam during polling
+      console.error('Error polling messages:', error);
+    }
+  };
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -66,9 +85,10 @@ const Chat: React.FC = () => {
       });
       
       // Add the new message to the local state
+      const myId = (currentUser?.user_id as string) || (currentUser?._id as string) || '';
       const newMessageObj: Message = {
         _id: response.data.message_id,
-        sender_id: currentUser!.user_id,
+        sender_id: myId,
         receiver_id: userId,
         content: newMessage.trim(),
         created_at: new Date().toISOString(),
@@ -101,16 +121,25 @@ const Chat: React.FC = () => {
     }
   };
 
+  // Add +05:30 (IST) offset when displaying times
+  const toIST = (dateString: string) => {
+    const utc = new Date(dateString);
+    // Add 330 minutes (5 hours 30 minutes)
+    return new Date(utc.getTime() + 330 * 60 * 1000);
+  };
+
+  const toISTFromDate = (dateObj: Date) => new Date(dateObj.getTime() + 330 * 60 * 1000);
+
   const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
+    return toIST(dateString).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const today = new Date();
+    const date = toIST(dateString);
+    const today = toISTFromDate(new Date());
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
@@ -192,7 +221,8 @@ const Chat: React.FC = () => {
             </div>
           ) : (
             messages.map((message, index) => {
-              const isOwnMessage = message.sender_id === currentUser?.user_id;
+              const myId = (currentUser?.user_id as string) || (currentUser?._id as string) || '';
+              const isOwnMessage = message.sender_id === myId;
               const showDate = index === 0 || 
                 formatDate(message.created_at) !== formatDate(messages[index - 1]?.created_at);
 

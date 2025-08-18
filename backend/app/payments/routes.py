@@ -181,8 +181,13 @@ async def calculate_document_payment(
     if duration_days <= 0:
         duration_days = 1  # Minimum 1 day
     
-    # Calculate total amount (₹1 per day)
-    total_amount = duration_days * 1.0
+    # Get the daily rate from the document or use default
+    daily_rate = document.get("daily_rate", 1.0)
+    
+    # Calculate total amount using the actual daily rate
+    total_amount = duration_days * daily_rate
+    
+    print(f"Duration: {duration_days} days, Daily Rate: ₹{daily_rate}, Total Amount: ₹{total_amount}")
     
     # Check payment status
     payment_status = "pending"
@@ -523,6 +528,20 @@ async def make_document_payment(
         "created_at": datetime.now(timezone.utc)
     })
     
+    # Check if all payments are completed and update document status
+    all_payments_completed = await check_all_payments_completed(str(document["_id"]), db)
+    if all_payments_completed:
+        await db.documents.update_one(
+            {"_id": document["_id"]},
+            {
+                "$set": {
+                    "payment_status": "completed",
+                    "updated_at": datetime.now(timezone.utc)
+                }
+            }
+        )
+        print(f"All payments completed for document {document_id}, updated document status to completed")
+    
     print(f"Payment completed successfully for user {current_user['user_id']}: ₹{user_distribution['amount']:.2f}")
     
     return {
@@ -595,15 +614,21 @@ async def get_document_payments(
         # Transform payments to response format
         payment_responses = []
         for payment in payments:
+            # Use created_at as fallback for updated_at if it doesn't exist
+            updated_at = payment.get("updated_at")
+            if not updated_at:
+                updated_at = payment["created_at"]
+                
             payment_response = PaymentResponse(
                 _id=str(payment["_id"]),
                 document_id=payment["document_id"],
                 user_id=payment["user_id"],
                 amount=payment["amount"],
+                duration_days=payment.get("duration_days", 1),
+                split_percentage=payment.get("split_percentage", None),
                 status=payment["status"],
-                payment_method=payment.get("payment_method", "wallet"),
                 created_at=payment["created_at"],
-                document_name=document.get("name", "Unknown Document")
+                updated_at=updated_at
             )
             payment_responses.append(payment_response)
         

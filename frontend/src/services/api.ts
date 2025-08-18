@@ -34,6 +34,9 @@ api.interceptors.request.use((config) => {
   if (config.data instanceof FormData) {
     // For FormData, let browser set Content-Type with boundary
     delete config.headers['Content-Type'];
+  } else if (config.data instanceof URLSearchParams) {
+    // For URL-encoded forms
+    config.headers['Content-Type'] = 'application/x-www-form-urlencoded';
   } else {
     // For JSON data, set application/json
     config.headers['Content-Type'] = 'application/json';
@@ -96,6 +99,9 @@ export const documentsAPI = {
   getDocument: (documentId: string) => 
     api.get<Document>(`/documents/${documentId}`), // Works with both document_id and document_code
   
+  getFinalPdf: (documentId: string) => 
+    api.get<Blob>(`/documents/${documentId}/final-pdf`, { responseType: 'blob' as any }),
+
   finalizeDocument: (documentId: string, finalDocuments: FormData) => 
     api.patch<{ message: string }>(`/documents/${documentId}/finalize`, finalDocuments), // Works with both document_id and document_code
   
@@ -116,8 +122,15 @@ export const documentsAPI = {
 
 // Messaging API
 export const messagingAPI = {
-  sendMessage: (data: { receiver_id: string; content: string; attachment?: File }) => 
-    api.post<{ message: string; message_id: string }>('/messaging/send', data), // Works with both user_id and char_id
+  sendMessage: (data: { receiver_id: string; content: string; attachment?: File }) => {
+    const form = new FormData();
+    form.append('receiver_id', data.receiver_id);
+    form.append('content', data.content);
+    if (data.attachment) {
+      form.append('attachment', data.attachment);
+    }
+    return api.post<{ message: string; message_id: string }>('/messaging/send', form);
+  },
   
   getConversation: (userId: string) => 
     api.get<Message[]>(`/messaging/conversations/${userId}`), // Works with both user_id and char_id
@@ -131,8 +144,14 @@ export const walletAPI = {
   getBalance: () => 
     api.get<Wallet>('/wallet/balance'),
   
-  addFunds: (data: FormData) => 
-    api.post<{ message: string; amount: number }>('/wallet/add-funds', data),
+  addFunds: (data: { amount: number; payment_receipt?: File }) => {
+    const form = new FormData();
+    form.append('amount', String(data.amount));
+    if (data.payment_receipt) {
+      form.append('payment_receipt', data.payment_receipt);
+    }
+    return api.post<{ message: string; amount: number }>('/wallet/add-funds', form);
+  },
   
   getTransactions: () => 
     api.get<Transaction[]>('/wallet/transactions'),
@@ -167,5 +186,20 @@ export const paymentsAPI = {
   makeDocumentPayment: (documentId: string) => 
     api.post<{ message: string }>(`/payments/document/${documentId}/pay`), // Works with both document_id and document_code
 };
+
+        // User Management in Documents
+        export const documentUsersAPI = {
+          addUserToDocument: (documentId: string, targetUserCharId: string) => 
+            api.post<{ message: string; target_user: any }>(
+              `/documents/${documentId}/add-user`,
+              new URLSearchParams({ target_user_char_id: targetUserCharId })
+            ),
+          
+          approveUserJoin: (documentId: string, userId: string) => 
+            api.put<{ message: string; document_status: string }>(`/documents/${documentId}/approve-user/${userId}`),
+          
+          removeUserFromDocument: (documentId: string, userId: string) => 
+            api.delete<{ message: string; document_status: string }>(`/documents/${documentId}/remove-user/${userId}`),
+        };
 
 export default api;

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List, Optional
 from app.messaging.models import MessageCreate, MessageResponse, MessageInDB
@@ -24,35 +24,39 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 @messaging_router.post("/send", response_model=dict)
 async def send_message(
-    receiver_id: str = Form(...),
-    content: str = Form(...),
+    receiver_id: Optional[str] = Form(None),
+    content: Optional[str] = Form(None),
     attachment: Optional[UploadFile] = File(None),
+    payload: Optional[MessageCreate] = Body(None),
     current_user=Depends(get_current_user),
     db=Depends(get_database)
 ):
     print(f"=== Send Message Request ===")
+    # Support both form-data and raw JSON body
+    if payload:
+        if not receiver_id:
+            receiver_id = payload.receiver_id
+        if not content:
+            content = payload.content
+
     print(f"Receiver ID/Char ID: {receiver_id}")
     print(f"Current user: {current_user['user_id']}")
     
-    # Try to find receiver by user_id first, then by char_id
+    # Validate required fields after merging sources
+    if not receiver_id or not content:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="receiver_id and content are required"
+        )
+    
+    # Try to find receiver by user_id first, then by char_id (no length assumptions)
     receiver = None
-    
-    # Check if receiver_id is a valid user_id (24-character hex string)
-    try:
-        if len(receiver_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in receiver_id):
-            print(f"Searching by user_id: {receiver_id}")
-            receiver = await db.users.find_one({"user_id": receiver_id})
-            if receiver:
-                print(f"Found receiver by user_id: {receiver.get('user_id')}")
-        else:
-            print(f"Not a valid user_id, searching by char_id: {receiver_id}")
-    except Exception as e:
-        print(f"Error checking user_id validity: {e}")
-        pass
-    
-    # If not found by user_id, try to find by char_id
+    print(f"Searching receiver by user_id: {receiver_id}")
+    receiver = await db.users.find_one({"user_id": receiver_id})
+    if receiver:
+        print(f"Found receiver by user_id: {receiver.get('user_id')}")
     if not receiver:
-        print(f"Searching by char_id: {receiver_id}")
+        print(f"Receiver not found by user_id, searching by char_id: {receiver_id}")
         receiver = await db.users.find_one({"char_id": receiver_id})
         if receiver:
             print(f"Found receiver by char_id: {receiver.get('char_id')}")
@@ -104,7 +108,7 @@ async def send_message(
         "message_id": str(result.inserted_id)
     }
 
-@messaging_router.get("/conversations/{user_id}", response_model=List[MessageResponse])
+@messaging_router.get("/conversations/{user_id}")
 async def get_conversation(
     user_id: str,
     current_user=Depends(get_current_user),
@@ -114,25 +118,14 @@ async def get_conversation(
     print(f"User ID/Char ID: {user_id}")
     print(f"Current user: {current_user['user_id']}")
     
-    # Try to find user by user_id first, then by char_id
+    # Try to find user by user_id first, then by char_id (no length assumptions)
     target_user = None
-    
-    # Check if user_id is a valid user_id (24-character hex string)
-    try:
-        if len(user_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in user_id):
-            print(f"Searching by user_id: {user_id}")
-            target_user = await db.users.find_one({"user_id": user_id})
-            if target_user:
-                print(f"Found user by user_id: {target_user.get('user_id')}")
-        else:
-            print(f"Not a valid user_id, searching by char_id: {user_id}")
-    except Exception as e:
-        print(f"Error checking user_id validity: {e}")
-        pass
-    
-    # If not found by user_id, try to find by char_id
+    print(f"Searching user by user_id: {user_id}")
+    target_user = await db.users.find_one({"user_id": user_id})
+    if target_user:
+        print(f"Found user by user_id: {target_user.get('user_id')}")
     if not target_user:
-        print(f"Searching by char_id: {user_id}")
+        print(f"User not found by user_id, searching by char_id: {user_id}")
         target_user = await db.users.find_one({"char_id": user_id})
         if target_user:
             print(f"Found user by char_id: {target_user.get('char_id')}")
@@ -161,29 +154,24 @@ async def get_conversation(
         {"$set": {"is_read": True}}
     )
     
-    result = []
+    response_messages = []
     for msg in messages:
         try:
-            # Ensure all required fields are present with defaults
-            msg_data = {
-                "id": str(msg["_id"]),  # Use 'id' for the alias mapping
+            response_messages.append({
+                "_id": str(msg.get("_id")),
                 "sender_id": msg.get("sender_id", ""),
                 "receiver_id": msg.get("receiver_id", ""),
                 "content": msg.get("content", ""),
                 "attachment": msg.get("attachment"),
-                "created_at": msg.get("created_at", datetime.now(timezone.utc)),
-                "is_read": msg.get("is_read", False)
-            }
-            
-            result.append(MessageResponse(**msg_data))
-            print(f"Successfully processed message: {msg.get('_id')}")
+                "created_at": (msg.get("created_at") or datetime.now(timezone.utc)),
+                "is_read": bool(msg.get("is_read", False))
+            })
         except Exception as e:
-            print(f"Error processing message {msg.get('_id', 'unknown')}: {e}")
-            print(f"Message data: {msg}")
+            print(f"Error serializing message {msg.get('_id', 'unknown')}: {e}")
             continue
-    
-    print(f"Returning {len(result)} processed messages")
-    return result
+
+    print(f"Returning {len(response_messages)} messages")
+    return response_messages
 
 @messaging_router.get("/unread-count")
 async def get_unread_count(current_user=Depends(get_current_user), db=Depends(get_database)):

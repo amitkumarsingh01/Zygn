@@ -213,7 +213,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Link
           to="/chat"
           className="card hover:shadow-md transition-shadow cursor-pointer group"
@@ -255,7 +255,7 @@ const Dashboard: React.FC = () => {
 
 
 
-        <div className="card hover:shadow-md transition-shadow cursor-pointer group">
+        {/* <div className="card hover:shadow-md transition-shadow cursor-pointer group">
           <div className="text-center">
             <div className="mx-auto h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center mb-3 group-hover:bg-orange-200 transition-colors">
               <DollarSign className="h-6 w-6 text-orange-600" />
@@ -264,7 +264,7 @@ const Dashboard: React.FC = () => {
             <p className="text-xs text-gray-500 mt-1">Manage document payments</p>
             <p className="text-xs text-gray-400 mt-1">Click on any document</p>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Documents List */}

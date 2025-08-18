@@ -11,7 +11,7 @@ class MessageCreate(BaseModel):
     attachment: Optional[str] = None
 
 class MessageResponse(BaseModel):
-    id: str = Field(alias="_id")
+    _id: str
     sender_id: str
     receiver_id: str
     content: str

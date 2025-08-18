@@ -19,15 +19,15 @@ class PaymentCreate(BaseModel):
     split_percentage: Optional[float] = Field(None, ge=0, le=100)
 
 class PaymentResponse(BaseModel):
-    id: str = Field(alias="_id")
+    _id: str
     user_id: str
     document_id: str
     amount: float
-    duration_days: int
-    split_percentage: Optional[float]
+    duration_days: Optional[int] = 1
+    split_percentage: Optional[float] = None
     status: PaymentStatus
     created_at: datetime
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
     
     class Config:
         populate_by_name = True

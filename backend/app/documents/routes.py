@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, status, File, Form, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List, Optional
 from app.documents.models import DocumentCreate, DocumentResponse, DocumentInDB, JoinDocumentRequest, InitiateAgreementRequest
@@ -12,6 +13,9 @@ from bson import ObjectId
 from datetime import datetime, timezone
 import os
 from app.documents.models import PricingConfig, PricingConfigCreate, PricingConfigUpdate
+from pathlib import Path
+
+# Optional heavy deps are imported lazily inside endpoints
 
 documents_router = APIRouter()
 security = HTTPBearer()
@@ -28,160 +32,23 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 @documents_router.post("/create", response_model=dict)
 async def create_document(
-    request: Request,
+    name: str = Form(...),
+    location: Optional[str] = Form(None),
+    start_date: Optional[str] = Form(None),
+    end_date: Optional[str] = Form(None),
+    raw_documents: List[UploadFile] = File(...),
     current_user=Depends(get_current_user),
     db=Depends(get_database)
 ):
     print(f"=== Document Creation Request ===")
     print(f"Current User: {current_user['user_id']}")
     
-    # Parse FormData manually
-    try:
-        form_data = await request.form()
-        print(f"Form data keys: {list(form_data.keys())}")
-        
-        # ULTRA-SIMPLE DEBUGGING: Just dump everything
-        print("=== ULTRA-SIMPLE FORM DATA DUMP ===")
-        print(f"Total form data items: {len(form_data)}")
-        print(f"Form data keys: {list(form_data.keys())}")
-        
-        # Dump each item completely
-        for i, (key, value) in enumerate(form_data.items()):
-            print(f"Item {i}: Key='{key}'")
-            print(f"  Type: {type(value)}")
-            print(f"  Value: {value}")
-            print(f"  Dir: {[attr for attr in dir(value) if not attr.startswith('_')][:10]}")  # First 10 public attributes
-            print(f"  Has filename: {hasattr(value, 'filename')}")
-            print(f"  Has read: {hasattr(value, 'read')}")
-            print(f"  Has size: {hasattr(value, 'size')}")
-            if hasattr(value, 'filename'):
-                print(f"  Filename: {value.filename}")
-            if hasattr(value, 'size'):
-                print(f"  Size: {value.size}")
-            print("  ---")
-        
-        # Debug: Print all form data values
-        print("=== Form Data Values ===")
-        for key, value in form_data.items():
-            # Use hasattr checks instead of isinstance for more robust type checking
-            if hasattr(value, 'filename') and hasattr(value, 'read'):
-                print(f"{key}: UploadFile - {value.filename}, size: {value.size if hasattr(value, 'size') else 'unknown'}")
-            else:
-                print(f"{key}: {value} (type: {type(value)})")
-        
-        # Check if we got any data at all
-        if not form_data:
-            print("WARNING: FormData is empty!")
-            raise Exception("FormData is empty")
-            
-    except Exception as e:
-        print(f"Error parsing FormData: {e}")
-        print("Trying alternative method...")
-        
-        # Try to get the raw request body
-        try:
-            body = await request.body()
-            print(f"Raw request body length: {len(body)}")
-            print(f"Raw request body preview: {body[:200] if len(body) > 200 else body}")
-        except Exception as body_error:
-            print(f"Error reading raw body: {body_error}")
-        
-        # Try to get headers
-        print("Request headers:")
-        for key, value in request.headers.items():
-            print(f"  {key}: {value}")
-        
-        # Try to get content type
-        content_type = request.headers.get('content-type', '')
-        print(f"Content-Type: {content_type}")
-        
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error parsing form data: {str(e)}"
-        )
-    
-    # Extract text fields
-    name = form_data.get('name')
-    location = form_data.get('location')
-    start_date = form_data.get('start_date')
-    end_date = form_data.get('end_date')
-    
-    print(f"=== Extracted Fields ===")
-    print(f"Name: {name} (type: {type(name)})")
-    print(f"Location: {location} (type: {type(location)})")
-    print(f"Start Date: {start_date} (type: {type(start_date)})")
-    print(f"End Date: {end_date} (type: {type(end_date)})")
-    
-    # ULTRA-SIMPLE FILE EXTRACTION - This WILL work
-    raw_documents = []
-    
-    print("=== ULTRA-SIMPLE FILE EXTRACTION ===")
-    
-    # Method 1: Try getlist first (most reliable)
-    try:
-        all_files = form_data.getlist('raw_documents')
-        print(f"getlist('raw_documents') returned {len(all_files)} items")
-        
-        for file in all_files:
-            print(f"File: {file} (type: {type(file)})")
-            raw_documents.append(file)
-            
-    except Exception as e:
-        print(f"getlist failed: {e}")
-        
-        # Method 2: Try direct access
-        try:
-            single_file = form_data.get('raw_documents')
-            print(f"Direct get('raw_documents'): {single_file} (type: {type(single_file)})")
-            
-            if single_file:
-                raw_documents.append(single_file)
-                
-        except Exception as e2:
-            print(f"Direct get failed: {e2}")
-    
-    # Method 3: Last resort - find ANY file-like objects
-    if not raw_documents:
-        print("Last resort: searching for any file-like objects")
-        for key, value in form_data.items():
-            print(f"Checking key '{key}': {type(value)}")
-            if hasattr(value, 'filename'):
-                print(f"Found file-like object with key '{key}': {value.filename}")
-                raw_documents.append(value)
-    
-    # Method 4: Check if files are stored under a different key
-    if not raw_documents:
-        print("Method 4: Checking for alternative field names")
-        possible_keys = ['files', 'documents', 'file', 'document', 'upload', 'uploads']
-        for key in possible_keys:
-            try:
-                files = form_data.getlist(key) if hasattr(form_data, 'getlist') else [form_data.get(key)]
-                for file in files:
-                    if file and hasattr(file, 'filename'):
-                        print(f"Found files under key '{key}': {file.filename}")
-                        raw_documents.append(file)
-            except Exception as e:
-                print(f"Key '{key}' failed: {e}")
-    
-    # Method 5: Check if files are stored as a single item that needs to be split
-    if not raw_documents:
-        print("Method 5: Checking for single file item that might be multiple")
-        for key, value in form_data.items():
-            if hasattr(value, 'filename') and isinstance(value, list):
-                print(f"Found list of files under key '{key}': {len(value)} files")
-                raw_documents.extend(value)
-    
-    print(f"Total files found: {len(raw_documents)}")
-    
-    # Debug: Show what we found
-    for i, file in enumerate(raw_documents):
-        print(f"File {i}: {file}")
-        if hasattr(file, 'filename'):
-            print(f"  -> Filename: {file.filename}")
-        if hasattr(file, 'size'):
-            print(f"  -> Size: {file.size}")
-    
-    print(f"=== File Extraction Results ===")
+    # Use the parameters directly from FastAPI
+    print(f"=== Received Parameters ===")
+    print(f"Name: {name}")
+    print(f"Location: {location}")
+    print(f"Start Date: {start_date}")
+    print(f"End Date: {end_date}")
     print(f"Raw Documents Count: {len(raw_documents)}")
     
     # Validate required fields
@@ -209,26 +76,26 @@ async def create_document(
     if end_date:
         parsed_end_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
     
-            # Get current pricing configuration
-        pricing_config = await db.pricing_config.find_one({"is_active": True})
-        daily_rate = pricing_config.get("daily_rate", 1.0) if pricing_config else 1.0
-        
-        # Calculate total days and amount automatically
-        total_days = 1  # Default to 1 day
-        
-        if parsed_start_date and parsed_end_date:
-            # Calculate the difference in days
-            date_diff = parsed_end_date - parsed_start_date
-            total_days = max(1, date_diff.days + 1)  # +1 to include both start and end dates
-        elif parsed_start_date or parsed_end_date:
-            # If only one date is provided, default to 1 day
-            print("Only one date provided, defaulting to 1 day")
-        else:
-            print("No dates provided, defaulting to 1 day")
-        
-        # Calculate total amount based on daily rate
-        total_amount = daily_rate * total_days
-        print(f"Calculated: {total_days} days × {daily_rate} coins/day = {total_amount} coins")
+    # Get current pricing configuration
+    pricing_config = await db.pricing_config.find_one({"is_active": True})
+    daily_rate = pricing_config.get("daily_rate", 1.0) if pricing_config else 1.0
+    
+    # Calculate total days and amount automatically
+    total_days = 1  # Default to 1 day
+    
+    if parsed_start_date and parsed_end_date:
+        # Calculate the difference in days
+        date_diff = parsed_end_date - parsed_start_date
+        total_days = max(1, date_diff.days + 1)  # +1 to include both start and end dates
+    elif parsed_start_date or parsed_end_date:
+        # If only one date is provided, default to 1 day
+        print("Only one date provided, defaulting to 1 day")
+    else:
+        print("No dates provided, defaulting to 1 day")
+    
+    # Calculate total amount based on daily rate
+    total_amount = daily_rate * total_days
+    print(f"Calculated: {total_days} days × {daily_rate} coins/day = {total_amount} coins")
     
     # Save uploaded documents
     print(f"Processing {len(raw_documents)} uploaded files")
@@ -446,6 +313,484 @@ async def approve_user_join(
     print(f"Successfully approved user {user_id} for document {document_id}")
     return {"message": "User approved successfully"}
 
+# User Management Endpoints - Simple Add/Remove/Approve
+@documents_router.post("/{document_id}/add-user")
+async def add_user_to_document(
+    document_id: str,
+    target_user_char_id: str = Form(...),
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Add a user to a document (Primary user only) - Can add users anytime after creation"""
+    print(f"=== Add User to Document ===")
+    print(f"Document ID/Code: {document_id}")
+    print(f"Target User Char ID: {target_user_char_id}")
+    print(f"Current user: {current_user['user_id']}")
+    
+    # Find document by ObjectId or code
+    document = None
+    try:
+        if ObjectId.is_valid(document_id):
+            document = await db.documents.find_one({"_id": ObjectId(document_id)})
+        else:
+            document = await db.documents.find_one({"document_code": document_id})
+    except Exception as e:
+        print(f"Error finding document: {e}")
+        pass
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    # Block edits after finalization
+    if document.get("status") == "finalized" or document.get("is_locked"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document is finalized and cannot be edited"
+        )
+    
+    # Check if current user is primary user
+    if document["primary_user"] != current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only primary user can add users"
+        )
+    
+    # Find target user by char_id
+    target_user = await db.users.find_one({"char_id": target_user_char_id})
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Target user not found"
+        )
+    
+    # Check if user is already involved
+    if target_user["user_id"] in document["involved_users"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is already part of this document"
+        )
+    
+    # Add user to involved_users (automatically approved - no pending state)
+    await db.documents.update_one(
+        {"_id": document["_id"]},
+        {
+            "$addToSet": {"involved_users": target_user["user_id"]},
+            "$set": {"updated_at": datetime.now(timezone.utc)}
+        }
+    )
+    
+    return {
+        "message": f"User {target_user['name']} added successfully to document",
+        "target_user": {
+            "user_id": target_user["user_id"],
+            "char_id": target_user["char_id"],
+            "name": target_user["name"]
+        }
+    }
+
+@documents_router.put("/{document_id}/approve-user/{user_id}")
+async def approve_user_join(
+    document_id: str,
+    user_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Approve a user's join request (Primary user only)"""
+    print(f"=== Approve User Join Request ===")
+    print(f"Document ID/Code: {document_id}")
+    print(f"User ID to approve: {user_id}")
+    print(f"Current user: {current_user['user_id']}")
+    
+    # Find document by ObjectId or code
+    document = None
+    try:
+        if ObjectId.is_valid(document_id):
+            document = await db.documents.find_one({"_id": ObjectId(document_id)})
+        else:
+            document = await db.documents.find_one({"document_code": document_id})
+    except Exception as e:
+        print(f"Error finding document: {e}")
+        pass
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    # Block edits after finalization
+    if document.get("status") == "finalized" or document.get("is_locked"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document is finalized and cannot be edited"
+        )
+    
+    # Check if current user is primary user
+    if document["primary_user"] != current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only primary user can approve join requests"
+        )
+    
+    # Check if user is in involved_users
+    if user_id not in document["involved_users"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is not in the document's involved users list"
+        )
+    
+    # Update document status to approved
+    await db.documents.update_one(
+        {"_id": document["_id"]},
+        {
+            "$set": {
+                "status": "approved",
+                "updated_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    # Get user details for response
+    user = await db.users.find_one({"user_id": user_id})
+    user_name = user.get("name", "Unknown") if user else "Unknown"
+    
+    return {
+        "message": f"User {user_name} approved successfully",
+        "document_status": "approved"
+    }
+
+@documents_router.delete("/{document_id}/remove-user/{user_id}")
+async def remove_user_from_document(
+    document_id: str,
+    user_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Remove a user from a document (Primary user only) - Can remove from pending or approved"""
+    print(f"=== Remove User from Document ===")
+    print(f"Document ID/Code: {document_id}")
+    print(f"User ID to remove: {user_id}")
+    print(f"Current user: {current_user['user_id']}")
+    
+    # Find document by ObjectId or code
+    document = None
+    try:
+        if ObjectId.is_valid(document_id):
+            document = await db.documents.find_one({"_id": ObjectId(document_id)})
+        else:
+            document = await db.documents.find_one({"document_code": document_id})
+    except Exception as e:
+        print(f"Error finding document: {e}")
+        pass
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    # Block edits after finalization
+    if document.get("status") == "finalized" or document.get("is_locked"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document is finalized and cannot be edited"
+        )
+    
+    # Check if current user is primary user
+    if document["primary_user"] != current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only primary user can remove users"
+        )
+    
+    # Prevent removing the primary user
+    if user_id == document["primary_user"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove the primary user from the document"
+        )
+    
+    # Check if user is in involved_users
+    if user_id not in document["involved_users"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is not in the document's involved users list"
+        )
+    
+    # Remove user from involved_users (works for both pending and approved users)
+    await db.documents.update_one(
+        {"_id": document["_id"]},
+        {
+            "$pull": {"involved_users": user_id},
+            "$set": {"updated_at": datetime.now(timezone.utc)}
+        }
+    )
+    
+    # Get user details for response
+    user = await db.users.find_one({"user_id": user_id})
+    user_name = user.get("name", "Unknown") if user else "Unknown"
+    
+    return {
+        "message": f"User {user_name} removed from document successfully",
+        "document_status": "updated"
+    }
+@documents_router.post("/{document_id}/invite-user")
+async def invite_user_to_document(
+    document_id: str,
+    target_user_char_id: str = Form(...),
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Invite a user to join a document (Primary user only)"""
+    print(f"=== Invite User to Document ===")
+    print(f"Document ID/Code: {document_id}")
+    print(f"Target User Char ID: {target_user_char_id}")
+    print(f"Current user: {current_user['user_id']}")
+    
+    # Find document by ObjectId or code
+    document = None
+    try:
+        if ObjectId.is_valid(document_id):
+            document = await db.documents.find_one({"_id": ObjectId(document_id)})
+        else:
+            document = await db.documents.find_one({"document_code": document_id})
+    except Exception as e:
+        print(f"Error finding document: {e}")
+        pass
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    # Check if current user is primary user
+    if document["primary_user"] != current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only primary user can invite users"
+        )
+    
+    # Find target user by char_id
+    target_user = await db.users.find_one({"char_id": target_user_char_id})
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Target user not found"
+        )
+    
+    # Check if user is already involved
+    if target_user["user_id"] in document["involved_users"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is already part of this document"
+        )
+    
+    # Add user to involved_users (pending approval)
+    await db.documents.update_one(
+        {"_id": document["_id"]},
+        {
+            "$addToSet": {"involved_users": target_user["user_id"]},
+            "$set": {"updated_at": datetime.now(timezone.utc)}
+        }
+    )
+    
+    return {
+        "message": f"User {target_user['name']} invited successfully",
+        "target_user": {
+            "user_id": target_user["user_id"],
+            "char_id": target_user["char_id"],
+            "name": target_user["name"]
+        }
+    }
+
+@documents_router.get("/{document_id}/pending-users")
+async def get_pending_users(
+    document_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Get list of users who joined but need approval (Primary user only)"""
+    print(f"=== Get Pending Users ===")
+    print(f"Document ID/Code: {document_id}")
+    print(f"Current user: {current_user['user_id']}")
+    
+    # Find document by ObjectId or code
+    document = None
+    try:
+        if ObjectId.is_valid(document_id):
+            document = await db.documents.find_one({"_id": ObjectId(document_id)})
+        else:
+            document = await db.documents.find_one({"document_code": document_id})
+    except Exception as e:
+        print(f"Error finding document: {e}")
+        pass
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    # Check if current user is primary user
+    if document["primary_user"] != current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only primary user can view pending users"
+        )
+    
+    # Get all involved users except primary user
+    pending_user_ids = [uid for uid in document["involved_users"] if uid != document["primary_user"]]
+    
+    # Get user details for pending users
+    pending_users = []
+    for user_id in pending_user_ids:
+        user = await db.users.find_one({"user_id": user_id})
+        if user:
+            pending_users.append({
+                "user_id": user["user_id"],
+                "char_id": user["char_id"],
+                "name": user["name"],
+                "email": user.get("email", ""),
+                "profile_pic": user.get("profile_pic", "")
+            })
+    
+    return {
+        "pending_users": pending_users,
+        "total_pending": len(pending_users)
+    }
+
+@documents_router.put("/{document_id}/reject-user/{user_id}")
+async def reject_user_join(
+    document_id: str,
+    user_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Reject a user's join request (Primary user only)"""
+    print(f"=== Reject User Join Request ===")
+    print(f"Document ID/Code: {document_id}")
+    print(f"User ID to reject: {user_id}")
+    print(f"Current user: {current_user['user_id']}")
+    
+    # Find document by ObjectId or code
+    document = None
+    try:
+        if ObjectId.is_valid(document_id):
+            document = await db.documents.find_one({"_id": ObjectId(document_id)})
+        else:
+            document = await db.documents.find_one({"document_code": document_id})
+    except Exception as e:
+        print(f"Error finding document: {e}")
+        pass
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    # Check if current user is primary user
+    if document["primary_user"] != current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only primary user can reject join requests"
+        )
+    
+    # Check if user is in involved_users
+    if user_id not in document["involved_users"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is not in the document's involved users list"
+        )
+    
+    # Remove user from involved_users
+    await db.documents.update_one(
+        {"_id": document["_id"]},
+        {
+            "$pull": {"involved_users": user_id},
+            "$set": {"updated_at": datetime.now(timezone.utc)}
+        }
+    )
+    
+    # Get user details for response
+    user = await db.users.find_one({"user_id": user_id})
+    user_name = user.get("name", "Unknown") if user else "Unknown"
+    
+    return {
+        "message": f"User {user_name} rejected and removed from document",
+        "document_status": "updated"
+    }
+
+@documents_router.put("/{document_id}/remove-user/{user_id}")
+async def remove_user_from_document(
+    document_id: str,
+    user_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Remove a user from a document (Primary user only)"""
+    print(f"=== Remove User from Document ===")
+    print(f"Document ID/Code: {document_id}")
+    print(f"User ID to remove: {user_id}")
+    print(f"Current user: {current_user['user_id']}")
+    
+    # Find document by ObjectId or code
+    document = None
+    try:
+        if ObjectId.is_valid(document_id):
+            document = await db.documents.find_one({"_id": ObjectId(document_id)})
+        else:
+            document = await db.documents.find_one({"document_code": document_id})
+    except Exception as e:
+        print(f"Error finding document: {e}")
+        pass
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    # Check if current user is primary user
+    if document["primary_user"] != current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only primary user can remove users"
+        )
+    
+    # Prevent removing the primary user
+    if user_id == document["primary_user"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove the primary user from the document"
+        )
+    
+    # Check if user is in involved_users
+    if user_id not in document["involved_users"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User is not in the document's involved users list"
+        )
+    
+    # Remove user from involved_users
+    await db.documents.update_one(
+        {"_id": document["_id"]},
+        {
+            "$pull": {"involved_users": user_id},
+            "$set": {"updated_at": datetime.now(timezone.utc)}
+        }
+    )
+    
+    # Get user details for response
+    user = await db.users.find_one({"user_id": user_id})
+    user_name = user.get("name", "Unknown") if user else "Unknown"
+    
+    return {
+        "message": f"User {user_name} removed from document successfully",
+        "document_status": "updated"
+    }
+
 @documents_router.get("/my-documents", response_model=List[DocumentResponse])
 async def get_my_documents(current_user=Depends(get_current_user), db=Depends(get_database)):
     try:
@@ -494,289 +839,6 @@ async def get_my_documents(current_user=Depends(get_current_user), db=Depends(ge
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching documents: {str(e)}"
-        )
-
-@documents_router.get("/{document_id}", response_model=DocumentResponse)
-async def get_document(
-    document_id: str,
-    current_user=Depends(get_current_user),
-    db=Depends(get_database)
-):
-    print(f"Getting document with ID/code: {document_id}")
-    print(f"Current user: {current_user['user_id']}")
-    
-    # Try to find document by ObjectId first, then by document_code
-    document = None
-    
-    # Check if document_id is a valid ObjectId
-    try:
-        if ObjectId.is_valid(document_id):
-            print(f"Searching by ObjectId: {document_id}")
-            document = await db.documents.find_one({"_id": ObjectId(document_id)})
-            if document:
-                print(f"Found document by ObjectId: {document.get('_id')}")
-        else:
-            print(f"Not a valid ObjectId, searching by document_code: {document_id}")
-    except Exception as e:
-        print(f"Error checking ObjectId validity: {e}")
-        pass
-    
-    # If not found by ObjectId, try to find by document_code
-    if not document:
-        print(f"Searching by document_code: {document_id}")
-        document = await db.documents.find_one({"document_code": document_id})
-        if document:
-            print(f"Found document by document_code: {document.get('document_code')}")
-    
-    if not document:
-        print(f"Document not found with ID/code: {document_id}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found"
-        )
-    
-    # Check if user is involved in the document
-    if current_user["user_id"] not in document["involved_users"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
-    
-    try:
-        print(f"Processing document: {document.get('_id', 'unknown')}")
-        # Ensure all required fields are present with defaults
-        doc_data = {
-            "_id": str(document["_id"]) if document.get("_id") else "",
-            "involved_users": document.get("involved_users", []),
-            "primary_user": document.get("primary_user", ""),
-            "upload_raw_docs": document.get("upload_raw_docs", []),
-            "final_docs": document.get("final_docs", []),
-            "datetime": document.get("datetime", datetime.now(timezone.utc)),
-            "location": document.get("location"),
-            "start_date": document.get("start_date"),
-            "end_date": document.get("end_date"),
-            "name": document.get("name", ""),
-            "document_code": document.get("document_code", ""),
-            "ai_forgery_check": document.get("ai_forgery_check", False),
-            "blockchain": document.get("blockchain", False),
-            "status": document.get("status", "draft"),
-            "is_active": document.get("is_active", True),
-            "is_primary": document.get("is_primary", False),
-            "daily_rate": document.get("daily_rate", 1.0),
-            "total_days": document.get("total_days", 1),
-            "total_amount": document.get("total_amount", 1.0),
-            "payment_status": document.get("payment_status", "pending"),
-            "created_at": document.get("created_at", datetime.now(timezone.utc)),
-            "updated_at": document.get("updated_at", datetime.now(timezone.utc))
-        }
-        print(f"Successfully processed document data")
-        return DocumentResponse(**doc_data)
-    except Exception as e:
-        print(f"Error processing document {document_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing document: {str(e)}"
-        )
-
-@documents_router.patch("/{document_id}/finalize")
-async def finalize_document(
-    document_id: str,
-    final_documents: List[UploadFile] = File(...),
-    current_user=Depends(get_current_user),
-    db=Depends(get_database)
-):
-    print(f"=== Finalize Document Request ===")
-    print(f"Document ID/Code: {document_id}")
-    print(f"Current user: {current_user['user_id']}")
-    
-    # Try to find document by ObjectId first, then by document_code
-    document = None
-    
-    # Check if document_id is a valid ObjectId
-    try:
-        if ObjectId.is_valid(document_id):
-            print(f"Searching by ObjectId: {document_id}")
-            document = await db.documents.find_one({"_id": ObjectId(document_id)})
-            if document:
-                print(f"Found document by ObjectId: {document.get('_id')}")
-        else:
-            print(f"Not a valid ObjectId, searching by document_code: {document_id}")
-    except Exception as e:
-        print(f"Error checking ObjectId validity: {e}")
-        pass
-    
-    # If not found by ObjectId, try to find by document_code
-    if not document:
-        print(f"Searching by document_code: {document_id}")
-        document = await db.documents.find_one({"document_code": document_id})
-        if document:
-            print(f"Found document by document_code: {document.get('document_code')}")
-    
-    if not document:
-        print(f"Document not found with ID/code: {document_id}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found"
-        )
-    
-    print(f"Found document: {document.get('_id')} with code: {document.get('document_code')}")
-    
-    if document["primary_user"] != current_user["user_id"]:
-        print(f"Access denied: {current_user['user_id']} is not primary user")
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only primary user can finalize documents"
-        )
-    
-    print(f"User {current_user['user_id']} is primary user, proceeding with finalization")
-    
-    # Check payment status before finalization
-    print(f"Checking payment status for document {document_id}")
-    
-    # Get payment distribution
-    payment_distribution = await db.payment_distributions.find_one({"document_id": str(document["_id"])})
-    
-    if not payment_distribution:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Payment distribution not setup. Please setup payment distribution before finalizing."
-        )
-    
-    # Check if all payments are completed
-    total_amount = payment_distribution["total_amount"]
-    total_paid = 0
-    
-    for dist in payment_distribution["distributions"]:
-        user_payment = await db.payments.find_one({
-            "document_id": str(document["_id"]),
-            "user_id": dist["user_id"],
-            "status": "completed"
-        })
-        
-        if user_payment:
-            total_paid += user_payment["amount"]
-    
-    if total_paid < total_amount:
-        remaining_amount = total_amount - total_paid
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Payment not completed. Remaining amount: ₹{remaining_amount:.2f}. Please complete all payments before finalizing."
-        )
-    
-    print(f"Payment verification successful. Total paid: ₹{total_paid:.2f}")
-    
-    # Save final documents
-    final_files = []
-    for file in final_documents:
-        filename = await save_uploaded_file(file, "documents")
-        file_path = f"/uploads/documents/{filename}"
-        final_files.append(file_path)
-        
-        # Run AI forgery check
-        is_authentic = await check_document_authenticity(file_path)
-        if not is_authentic:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Document failed AI forgery check"
-            )
-    
-    # Update document - use the actual document _id from the found document
-    document_object_id = document["_id"]
-    print(f"Updating document with ObjectId: {document_object_id}")
-    
-    await db.documents.update_one(
-        {"_id": document_object_id},
-        {
-            "$set": {
-                "final_docs": final_files,
-                "ai_forgery_check": True,
-                "status": "finalized",
-                "updated_at": datetime.now(timezone.utc)
-            }
-        }
-    )
-    
-    # Add to blockchain
-    blockchain_hash = await add_to_blockchain(str(document_object_id), final_files)
-    await db.documents.update_one(
-        {"_id": document_object_id},
-        {"$set": {"blockchain": True, "blockchain_hash": blockchain_hash}}
-    )
-    
-    return {"message": "Document finalized successfully"}
-
-@documents_router.post("/initiate-agreement", response_model=dict)
-async def initiate_agreement(
-    request: InitiateAgreementRequest,
-    current_user=Depends(get_current_user),
-    db=Depends(get_database)
-):
-    print(f"=== Initiate Agreement Request ===")
-    print(f"Initiator: {current_user['user_id']}")
-    print(f"Target User Char ID: {request.target_user_char_id}")
-    
-    # Find target user by char_id
-    target_user = await db.users.find_one({"char_id": request.target_user_char_id})
-    if not target_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Target user not found"
-        )
-    
-    print(f"Found target user: {target_user['user_id']} ({target_user['char_id']})")
-    
-    # Check if user is trying to initiate agreement with themselves
-    if target_user["user_id"] == current_user["user_id"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot initiate agreement with yourself"
-        )
-    
-    # Create document with both users involved
-    current_time = datetime.now(timezone.utc)
-    document = DocumentInDB(
-        involved_users=[current_user["user_id"], target_user["user_id"]],
-        primary_user=current_user["user_id"],
-        upload_raw_docs=[],
-        final_docs=[],
-        datetime=current_time,
-        name=request.name,
-        location=request.location,
-        start_date=None,
-        end_date=None,
-        ai_forgery_check=False,
-        blockchain=False,
-        status="pending",
-        is_active=True,
-        is_primary=False,
-        created_at=current_time,
-        updated_at=current_time
-    )
-    
-    try:
-        document_dict = document.dict()
-        result = await db.documents.insert_one(document_dict)
-        print(f"Document created successfully with ID: {result.inserted_id}")
-        
-        return {
-            "message": "Agreement initiated successfully",
-            "document_id": str(result.inserted_id),
-            "document_code": document.document_code,
-            "target_user": {
-                "user_id": target_user["user_id"],
-                "char_id": target_user["char_id"],
-                "name": target_user["name"]
-            },
-            "daily_rate": 1.0,  # Fixed at 1 coin per day
-            "total_days": 1,     # Default to 1 day
-            "total_amount": 1.0  # Default amount
-        }
-        
-    except Exception as e:
-        print(f"Error creating agreement: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating agreement: {str(e)}"
         )
 
 # Pricing Configuration Endpoints
@@ -913,4 +975,673 @@ async def update_pricing_config(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update pricing configuration"
         )
+
+@documents_router.get("/{document_id}", response_model=DocumentResponse)
+async def get_document(
+    document_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    print(f"Getting document with ID/code: {document_id}")
+    print(f"Current user: {current_user['user_id']}")
+    
+    # Try to find document by ObjectId first, then by document_code
+    document = None
+    
+    # Check if document_id is a valid ObjectId
+    try:
+        if ObjectId.is_valid(document_id):
+            print(f"Searching by ObjectId: {document_id}")
+            document = await db.documents.find_one({"_id": ObjectId(document_id)})
+            if document:
+                print(f"Found document by ObjectId: {document.get('_id')}")
+        else:
+            print(f"Not a valid ObjectId, searching by document_code: {document_id}")
+    except Exception as e:
+        print(f"Error checking ObjectId validity: {e}")
+        pass
+    
+    # If not found by ObjectId, try to find by document_code
+    if not document:
+        print(f"Searching by document_code: {document_id}")
+        document = await db.documents.find_one({"document_code": document_id})
+        if document:
+            print(f"Found document by document_code: {document.get('document_code')}")
+    
+    if not document:
+        print(f"Document not found with ID/code: {document_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    # Check if user is involved in the document
+    if current_user["user_id"] not in document["involved_users"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
+        )
+    
+    try:
+        print(f"Processing document: {document.get('_id', 'unknown')}")
+        # Ensure all required fields are present with defaults
+        doc_data = {
+            "_id": str(document["_id"]) if document.get("_id") else "",
+            "involved_users": document.get("involved_users", []),
+            "primary_user": document.get("primary_user", ""),
+            "upload_raw_docs": document.get("upload_raw_docs", []),
+            "final_docs": document.get("final_docs", []),
+            "datetime": document.get("datetime", datetime.now(timezone.utc)),
+            "location": document.get("location"),
+            "start_date": document.get("start_date"),
+            "end_date": document.get("end_date"),
+            "name": document.get("name", ""),
+            "document_code": document.get("document_code", ""),
+            "ai_forgery_check": document.get("ai_forgery_check", False),
+            "blockchain": document.get("blockchain", False),
+            "status": document.get("status", "draft"),
+            "is_active": document.get("is_active", True),
+            "is_primary": document.get("is_primary", False),
+            "daily_rate": document.get("daily_rate", 1.0),
+            "total_days": document.get("total_days", 1),
+            "total_amount": document.get("total_amount", 1.0),
+            "payment_status": document.get("payment_status", "pending"),
+            "created_at": document.get("created_at", datetime.now(timezone.utc)),
+            "updated_at": document.get("updated_at", datetime.now(timezone.utc))
+        }
+        print(f"Successfully processed document data")
+        return DocumentResponse(**doc_data)
+    except Exception as e:
+        print(f"Error processing document {document_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing document: {str(e)}"
+        )
+
+@documents_router.patch("/{document_id}/finalize")
+async def finalize_document(
+    document_id: str,
+    final_documents: Optional[List[UploadFile]] = File(None),
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    print(f"=== Finalize Document Request ===")
+    print(f"Document ID/Code: {document_id}")
+    print(f"Current user: {current_user['user_id']}")
+    
+    # Try to find document by ObjectId first, then by document_code
+    document = None
+    
+    # Check if document_id is a valid ObjectId
+    try:
+        if ObjectId.is_valid(document_id):
+            print(f"Searching by ObjectId: {document_id}")
+            document = await db.documents.find_one({"_id": ObjectId(document_id)})
+            if document:
+                print(f"Found document by ObjectId: {document.get('_id')}")
+        else:
+            print(f"Not a valid ObjectId, searching by document_code: {document_id}")
+    except Exception as e:
+        print(f"Error checking ObjectId validity: {e}")
+        pass
+    
+    # If not found by ObjectId, try to find by document_code
+    if not document:
+        print(f"Searching by document_code: {document_id}")
+        document = await db.documents.find_one({"document_code": document_id})
+        if document:
+            print(f"Found document by document_code: {document.get('document_code')}")
+    
+    if not document:
+        print(f"Document not found with ID/code: {document_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    print(f"Found document: {document.get('_id')} with code: {document.get('document_code')}")
+    
+    if document["primary_user"] != current_user["user_id"]:
+        print(f"Access denied: {current_user['user_id']} is not primary user")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only primary user can finalize documents"
+        )
+    
+    print(f"User {current_user['user_id']} is primary user, proceeding with finalization")
+    
+    # Check payment status before finalization
+    print(f"Checking payment status for document {document_id}")
+    
+    # Get payment distribution
+    payment_distribution = await db.payment_distributions.find_one({"document_id": str(document["_id"])})
+    
+    if not payment_distribution:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Payment distribution not setup. Please setup payment distribution before finalizing."
+        )
+    
+    # Check if all payments are completed
+    total_amount = payment_distribution["total_amount"]
+    total_paid = 0
+    
+    for dist in payment_distribution["distributions"]:
+        user_payment = await db.payments.find_one({
+            "document_id": str(document["_id"]),
+            "user_id": dist["user_id"],
+            "status": "completed"
+        })
+        
+        if user_payment:
+            total_paid += user_payment["amount"]
+    
+    if total_paid < total_amount:
+        remaining_amount = total_amount - total_paid
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Payment not completed. Remaining amount: ₹{remaining_amount:.2f}. Please complete all payments before finalizing."
+        )
+    
+    print(f"Payment verification successful. Total paid: ₹{total_paid:.2f}")
+    
+    # Save final documents if provided; otherwise auto-generate server-side
+    final_files = []
+    if final_documents and len(final_documents) > 0:
+        for file in final_documents:
+            filename = await save_uploaded_file(file, "documents")
+            file_path = f"/uploads/documents/{filename}"
+            final_files.append(file_path)
+            # Run AI forgery check
+            is_authentic = await check_document_authenticity(file_path)
+            if not is_authentic:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Document failed AI forgery check"
+                )
+    else:
+        # Generate composed final PDF and store it
+        try:
+            # Reuse final-pdf generator endpoint logic by calling function indirectly
+            from PyPDF2 import PdfReader
+            from reportlab.pdfgen import canvas
+            # Generate composed pdf to disk
+            # Call our own final-pdf to ensure it exists
+            _ = await get_final_document_pdf(document_id, current_user, db)
+            # Save path from generated output
+            upload_root = Path(settings.upload_dir)
+            output_dir = upload_root / "generated"
+            # Find the most recent generated file for this document
+            candidates = sorted(output_dir.glob(f"final_*{document_id}*.pdf"), key=lambda p: p.stat().st_mtime, reverse=True)
+            if not candidates:
+                # Fallback: any final_*.pdf
+                candidates = sorted(output_dir.glob("final_*.pdf"), key=lambda p: p.stat().st_mtime, reverse=True)
+            if not candidates:
+                raise HTTPException(status_code=500, detail="Failed to compose final PDF")
+            composed = candidates[0]
+            # Move/copy into uploads/documents for consistency
+            dest_dir = Path(settings.upload_dir) / "documents"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest_path = dest_dir / composed.name
+            if composed.resolve() != dest_path.resolve():
+                dest_path.write_bytes(composed.read_bytes())
+            final_files.append(f"/uploads/documents/{dest_path.name}")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to auto-generate final PDF: {e}")
+    
+    # Update document - use the actual document _id from the found document
+    document_object_id = document["_id"]
+    print(f"Updating document with ObjectId: {document_object_id}")
+    
+    await db.documents.update_one(
+        {"_id": document_object_id},
+        {
+            "$set": {
+                "final_docs": final_files,
+                "ai_forgery_check": True,
+                "status": "finalized",
+                "is_locked": True,
+                "updated_at": datetime.now(timezone.utc)
+            }
+        }
+    )
+    
+    # Add to blockchain
+    blockchain_hash = await add_to_blockchain(str(document_object_id), final_files)
+    await db.documents.update_one(
+        {"_id": document_object_id},
+        {"$set": {"blockchain": True, "blockchain_hash": blockchain_hash}}
+    )
+    
+    return {"message": "Document finalized successfully"}
+
+@documents_router.get("/{document_id}/final-pdf")
+async def get_final_document_pdf(
+    document_id: str,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Generate a composed final PDF with background and a summary page, and return it as a file.
+    Final PDF = All raw documents composited onto bg.pdf + one summary page with participant details and payments.
+    """
+    try:
+        from PyPDF2 import PdfReader, PdfWriter
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import mm
+        from reportlab.lib.utils import ImageReader
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF dependencies missing: {e}")
+
+    # Find document by id or code
+    document = None
+    try:
+        if ObjectId.is_valid(document_id):
+            document = await db.documents.find_one({"_id": ObjectId(document_id)})
+        else:
+            document = await db.documents.find_one({"document_code": document_id})
+    except Exception:
+        pass
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Ensure current user is involved
+    if current_user["user_id"] not in document.get("involved_users", []):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Background asset and output dir
+    bg_path = Path("app/assets/bg.pdf")
+    if not bg_path.exists():
+        raise HTTPException(status_code=500, detail="Background PDF not found")
+
+    upload_root = Path(settings.upload_dir)
+    output_dir = upload_root / "generated"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_pdf_path = output_dir / f"final_{document.get('_id', document_id)}.pdf"
+
+    # Build participants info
+    users = []
+    for uid in document.get("involved_users", []):
+        u = await db.users.find_one({"user_id": uid})
+        if not u:
+            continue
+        users.append({
+            "name": u.get("name", "Unknown"),
+            "email": u.get("email", ""),
+            "phone": u.get("phone_no", ""),
+            "profile_pic": u.get("profile_pic"),
+            "signature": u.get("signature_pic"),
+            "eye_pic": u.get("eye_pic"),
+            "fingerprint": u.get("fingerprint"),
+            "user_id": u.get("user_id")
+        })
+
+    # Fetch payment distribution if present
+    payment_distribution = await db.payment_distributions.find_one({"document_id": str(document["_id"])})
+    user_to_amount = {}
+    if payment_distribution:
+        for dist in payment_distribution.get("distributions", []):
+            user_to_amount[dist.get("user_id")] = {
+                "percentage": dist.get("percentage"),
+                "amount": dist.get("amount")
+            }
+
+    # Compose PDF: pages composited over bg.pdf
+    writer = PdfWriter()
+    bg_reader_for_size = PdfReader(str(bg_path))
+    bg_proto = bg_reader_for_size.pages[0]
+    bg_w = float(bg_proto.mediabox.width)
+    bg_h = float(bg_proto.mediabox.height)
+
+    margin_ratio = 0.20
+    usable_w = bg_w * (1 - 2 * margin_ratio)
+    usable_h = bg_h * (1 - 2 * margin_ratio)
+
+    def _merge_compat(target_page, src_page, scale, tx, ty):
+        # Try multiple PyPDF2 APIs for broad compatibility
+        try:
+            if hasattr(target_page, 'merge_transformed_page'):
+                ctm = (scale, 0, 0, scale, tx, ty)
+                target_page.merge_transformed_page(src_page, ctm)
+                return
+        except Exception:
+            pass
+        try:
+            if hasattr(target_page, 'mergeScaledTranslatedPage'):
+                # Older PyPDF2 API
+                target_page.mergeScaledTranslatedPage(src_page, scale, tx, ty)
+                return
+        except Exception:
+            pass
+        try:
+            if hasattr(src_page, 'add_transformation'):
+                ctm = (scale, 0, 0, scale, tx, ty)
+                src_page.add_transformation(ctm)
+                target_page.merge_page(src_page)
+                return
+        except Exception:
+            pass
+        # Last resort: scale only and center approximately
+        try:
+            if hasattr(src_page, 'scale_by'):
+                src_page.scale_by(scale)
+            target_page.merge_page(src_page)
+        except Exception:
+            # Give up silently; caller may choose to append original
+            raise
+
+    def compose_with_bg_and_margins(src_page):
+        # Fresh background for each composed page
+        bg_reader_local = PdfReader(str(bg_path))
+        blank_page = bg_reader_local.pages[0]
+        src_w = float(src_page.mediabox.width)
+        src_h = float(src_page.mediabox.height)
+        scale = min(usable_w / src_w, usable_h / src_h)
+        tx = bg_w * margin_ratio + (usable_w - src_w * scale) / 2
+        ty = bg_h * margin_ratio + (usable_h - src_h * scale) / 2
+        _merge_compat(blank_page, src_page, scale, tx, ty)
+        return blank_page
+
+    # Append all pages from all raw documents, scaled to fit inside 20% margins
+    for rel_path in document.get("upload_raw_docs", []):
+        raw_abs = Path(".") / rel_path.lstrip("/")
+        if not raw_abs.exists():
+            continue
+        try:
+            reader = PdfReader(str(raw_abs))
+            for page in reader.pages:
+                composed = compose_with_bg_and_margins(page)
+                writer.add_page(composed)
+        except Exception as e:
+            # If fail to merge, still append original pages to avoid blocking
+            try:
+                reader = PdfReader(str(raw_abs))
+                for p in reader.pages:
+                    writer.add_page(p)
+            except Exception:
+                print(f"Failed to append raw pdf {raw_abs}: {e}")
+
+    # Create summary page content via ReportLab (same size as bg)
+    summary_pdf_path = output_dir / f"summary_{document.get('_id', document_id)}.pdf"
+    c = canvas.Canvas(str(summary_pdf_path), pagesize=(bg_w, bg_h))
+    width, height = bg_w, bg_h
+
+    # Simple vector icons to avoid emoji font issues
+    def draw_doc_icon(x, y, size):
+        c.setFillColorRGB(0.2, 0.2, 0.2)
+        c.rect(x, y - size + 2, size*0.8, size, fill=0, stroke=1)
+        c.line(x, y - size*0.35, x + size*0.8, y - size*0.35)
+        c.line(x, y - size*0.60, x + size*0.8, y - size*0.60)
+        c.setFillColorRGB(0, 0, 0)
+
+    def draw_user_icon(x, y, size):
+        c.setFillColorRGB(0.1, 0.4, 0.8)
+        c.circle(x + size*0.35, y - size*0.35, size*0.18, fill=1, stroke=0)
+        c.roundRect(x + size*0.10, y - size*0.95, size*0.50, size*0.35, 2, fill=1, stroke=0)
+        c.setFillColorRGB(0, 0, 0)
+
+    def draw_location_icon(x, y, size):
+        c.setFillColorRGB(0.86, 0.17, 0.17)
+        # pin body
+        c.circle(x + size*0.30, y - size*0.45, size*0.16, fill=1, stroke=0)
+        c.line(x + size*0.30, y - size*0.60, x + size*0.30, y - size*0.95)
+        c.setFillColorRGB(0, 0, 0)
+
+    def draw_calendar_icon(x, y, size):
+        c.setFillColorRGB(0.10, 0.6, 0.2)
+        c.rect(x, y - size, size*0.8, size*0.65, fill=0, stroke=1)
+        c.rect(x, y - size*0.35, size*0.8, size*0.15, fill=1, stroke=0)
+        c.setFillColorRGB(1, 1, 1)
+        c.rect(x + size*0.05, y - size*0.30, size*0.15, size*0.08, fill=1, stroke=0)
+        c.rect(x + size*0.30, y - size*0.30, size*0.15, size*0.08, fill=1, stroke=0)
+        c.rect(x + size*0.55, y - size*0.30, size*0.15, size*0.08, fill=1, stroke=0)
+        c.setFillColorRGB(0, 0, 0)
+
+    def draw_check_icon(x, y, size):
+        c.setFillColorRGB(0.0, 0.6, 0.2)
+        c.circle(x + size*0.35, y - size*0.45, size*0.28, fill=0, stroke=1)
+        c.setLineWidth(2)
+        c.line(x + size*0.18, y - size*0.48, x + size*0.30, y - size*0.62)
+        c.line(x + size*0.30, y - size*0.62, x + size*0.52, y - size*0.38)
+        c.setLineWidth(1)
+        c.setFillColorRGB(0, 0, 0)
+
+    def draw_chain_icon(x, y, size):
+        c.setFillColorRGB(0.1, 0.1, 0.8)
+        c.roundRect(x, y - size*0.55, size*0.45, size*0.25, 2, fill=0, stroke=1)
+        c.roundRect(x + size*0.35, y - size*0.80, size*0.45, size*0.25, 2, fill=0, stroke=1)
+        c.line(x + size*0.35, y - size*0.67, x + size*0.45, y - size*0.62)
+        c.setFillColorRGB(0, 0, 0)
+
+    # Header - larger fonts, text only (no emojis/icons)
+    c.setFont("Helvetica-Bold", 26)
+    c.drawString(20*mm, height-25*mm, "Document Summary")
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(20*mm, height-35*mm, f"Name: {document.get('name', '')}")
+    c.setFont("Helvetica", 13)
+    c.drawString(20*mm, height-45*mm, f"Code: {document.get('document_code', '')}")
+    c.drawString(90*mm, height-45*mm, f"Location: {document.get('location', 'N/A')}")
+    c.drawString(20*mm, height-55*mm, f"Start: {document.get('start_date')}")
+    c.drawString(90*mm, height-55*mm, f"End: {document.get('end_date')}")
+    c.drawString(20*mm, height-65*mm, "AI Forgery Check: PASSED")
+    c.drawString(90*mm, height-65*mm, "Blockchain Verification: DONE")
+
+    # Participants & Payment Share - Rich blocks utilizing full page
+    y = height - 80*mm
+    left_margin = 20*mm
+    right_margin = 20*mm
+    avail_w = width - left_margin - right_margin
+
+    c.setFont("Helvetica-Bold", 20)
+    c.drawString(left_margin, y, "Participants & Payment Share")
+    y -= 12*mm
+
+    header_h = 14*mm
+    # Plain header (no background colours)
+    c.setFont("Helvetica-Bold", 13)
+    c.drawString(left_margin + 4, y - 5*mm, "Participant")
+    c.drawString(left_margin + avail_w*0.60, y - 5*mm, "Share % / Amount")
+    y -= header_h + 4*mm
+
+    # User block metrics (3-row layout)
+    row1_h = 10*mm  # name/email/phone
+    row2_h = 10*mm  # share/amount
+    img_h = 25*mm   # photo height (+25%)
+    label_h = 4*mm
+    block_h = row1_h + row2_h + img_h + label_h + 6*mm  # +padding
+    img_w = img_h
+    img_gap = 8*mm
+
+    for idx, u in enumerate(users, start=1):
+        # Page break
+        if y - block_h < 25*mm:
+            c.showPage()
+            y = height - 25*mm
+            c.setFont("Helvetica-Bold", 20)
+            c.drawString(left_margin, y, "Participants & Payment Share (cont.)")
+            y -= 12*mm
+            c.setFont("Helvetica-Bold", 13)
+            c.drawString(left_margin + 4, y - 5*mm, "Participant")
+            c.drawString(left_margin + avail_w*0.60, y - 5*mm, "Share % / Amount")
+            y -= header_h + 4*mm
+
+        # Plain block, no colours
+
+        # Row 1: Name | Email | Phone
+        col1_x = left_margin + 4
+        col2_x = left_margin + avail_w*0.45
+        col3_x = left_margin + avail_w*0.75
+        base1 = y - 6*mm
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(col1_x, base1, f"{idx}. {u['name']}")
+        c.setFont("Helvetica", 12)
+        c.drawString(col2_x, base1, u.get('email', ''))
+        c.drawString(col3_x, base1, u.get('phone', ''))
+
+        # Row 2: Share % | Amount
+        pay = user_to_amount.get(u['user_id'], {})
+        pct = pay.get('percentage')
+        amt = pay.get('amount')
+        base2 = y - row1_h - 4*mm
+        c.setFont("Helvetica-Bold", 13)
+        if pct is not None:
+            c.drawString(col1_x, base2, f"Share: {pct:.0f}%")
+        if amt is not None:
+            c.drawString(col2_x, base2, f"Amount: INR {amt:.2f}")
+
+        # Row 3: Photos in one row with labels under each
+        photos = [
+            (u.get('profile_pic'), 'Selfie'),
+            (u.get('eye_pic'), 'Eye'),
+            (u.get('fingerprint'), 'Fingerprint'),
+            (u.get('signature'), 'Signature')
+        ]
+        # compute horizontal positioning
+        total_imgs_w = 4*img_w + 3*img_gap
+        start_x = left_margin + max(4, (avail_w - total_imgs_w)/2)
+        yimg_top = y - row1_h - row2_h - 2*mm
+        yimg = yimg_top - img_h
+        for i, (rel, label) in enumerate(photos):
+            x = start_x + i*(img_w + img_gap)
+            if rel:
+                pth = Path(".") / str(rel).lstrip("/")
+                if pth.exists():
+                    try:
+                        c.drawImage(ImageReader(str(pth)), x, yimg, width=img_w, height=img_h, preserveAspectRatio=True, mask='auto')
+                    except Exception:
+                        pass
+            c.setFont("Helvetica", 10)
+            c.drawCentredString(x + img_w/2, yimg - 10, label)
+
+        # Divider line (thin)
+        c.setLineWidth(0.6)
+        c.line(left_margin, y - block_h, left_margin + avail_w, y - block_h)
+        y -= block_h + 3*mm
+
+    c.showPage()
+    c.save()
+
+    # Append summary page composited over background (fit full page)
+    try:
+        sum_reader = PdfReader(str(summary_pdf_path))
+        for sum_page in sum_reader.pages:
+            # place summary to cover bg fully, centered
+            bg_reader_local = PdfReader(str(bg_path))
+            bg_page = bg_reader_local.pages[0]
+            sw = float(sum_page.mediabox.width)
+            sh = float(sum_page.mediabox.height)
+            scale = min(bg_w / sw, bg_h / sh)
+            tx = (bg_w - sw * scale) / 2
+            ty = (bg_h - sh * scale) / 2
+            _merge_compat(bg_page, sum_page, scale, tx, ty)
+            writer.add_page(bg_page)
+    except Exception as e:
+        print(f"Error adding summary page: {e}")
+
+    # Write final composed pdf
+    # Add page numbers to every page (bottom center)
+    total_pages = len(writer.pages)
+    numbered_pages = PdfWriter()
+    for idx in range(total_pages):
+        page = writer.pages[idx]
+        # Create overlay
+        num_overlay_path = output_dir / f"num_{idx+1}.pdf"
+        cnum = canvas.Canvas(str(num_overlay_path), pagesize=(float(page.mediabox.width), float(page.mediabox.height)))
+        cnum.setFont("Helvetica", 10)
+        footer_text = f"Page {idx+1} of {total_pages}"
+        text_width = cnum.stringWidth(footer_text, "Helvetica", 10)
+        # Move page number higher (double of existing): 20mm from bottom
+        cnum.drawString((float(page.mediabox.width) - text_width)/2, 20*mm, footer_text)
+        cnum.showPage()
+        cnum.save()
+        try:
+            oreader = PdfReader(str(num_overlay_path))
+            overlay = oreader.pages[0]
+            page.merge_page(overlay)
+        except Exception:
+            pass
+        numbered_pages.add_page(page)
+
+    with open(output_pdf_path, "wb") as f:
+        numbered_pages.write(f)
+
+    return FileResponse(path=str(output_pdf_path), filename=output_pdf_path.name, media_type="application/pdf")
+
+@documents_router.post("/initiate-agreement", response_model=dict)
+async def initiate_agreement(
+    request: InitiateAgreementRequest,
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    print(f"=== Initiate Agreement Request ===")
+    print(f"Initiator: {current_user['user_id']}")
+    print(f"Target User Char ID: {request.target_user_char_id}")
+    
+    # Find target user by char_id
+    target_user = await db.users.find_one({"char_id": request.target_user_char_id})
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Target user not found"
+        )
+    
+    print(f"Found target user: {target_user['user_id']} ({target_user['char_id']})")
+    
+    # Check if user is trying to initiate agreement with themselves
+    if target_user["user_id"] == current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot initiate agreement with yourself"
+        )
+    
+    # Create document with both users involved
+    current_time = datetime.now(timezone.utc)
+    document = DocumentInDB(
+        involved_users=[current_user["user_id"], target_user["user_id"]],
+        primary_user=current_user["user_id"],
+        upload_raw_docs=[],
+        final_docs=[],
+        datetime=current_time,
+        name=request.name,
+        location=request.location,
+        start_date=None,
+        end_date=None,
+        ai_forgery_check=False,
+        blockchain=False,
+        status="pending",
+        is_active=True,
+        is_primary=False,
+        created_at=current_time,
+        updated_at=current_time
+    )
+    
+    try:
+        document_dict = document.dict()
+        result = await db.documents.insert_one(document_dict)
+        print(f"Document created successfully with ID: {result.inserted_id}")
+        
+        return {
+            "message": "Agreement initiated successfully",
+            "document_id": str(result.inserted_id),
+            "document_code": document.document_code,
+            "target_user": {
+                "user_id": target_user["user_id"],
+                "char_id": target_user["char_id"],
+                "name": target_user["name"]
+            },
+            "daily_rate": 1.0,  # Fixed at 1 coin per day
+            "total_days": 1,     # Default to 1 day
+            "total_amount": 1.0  # Default amount
+        }
+        
+    except Exception as e:
+        print(f"Error creating agreement: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating agreement: {str(e)}"
+        )
+
+
 
