@@ -26,26 +26,16 @@ const ProfileCompletionModal: React.FC<ProfileCompletionModalProps> = ({
       case 'state':
       case 'govt_id_type':
       case 'govt_id_number':
+      case 'govt_id_image':
         return <User className="h-4 w-4" />;
-      case 'profile_pic':
-        return <Camera className="h-4 w-4" />;
-      case 'signature_pic':
-        return <FileText className="h-4 w-4" />;
-      case 'eye_pic':
-        return <Eye className="h-4 w-4" />;
-      case 'fingerprint':
-        return <Fingerprint className="h-4 w-4" />;
       default:
         return <User className="h-4 w-4" />;
     }
   };
 
   const getFieldCategory = (field: string): string => {
-    if (['name', 'email', 'phone_no', 'city', 'state', 'govt_id_type', 'govt_id_number'].includes(field)) {
-      return 'Personal Information';
-    }
-    if (['profile_pic', 'signature_pic', 'eye_pic', 'fingerprint'].includes(field)) {
-      return 'Verification Documents';
+    if (['name', 'email', 'phone_no', 'city', 'state', 'govt_id_type', 'govt_id_number', 'govt_id_image'].includes(field)) {
+      return 'Basic Information';
     }
     return 'Other';
   };
@@ -102,11 +92,12 @@ const ProfileCompletionModal: React.FC<ProfileCompletionModalProps> = ({
               <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
               <div>
                 <h3 className="text-sm font-medium text-orange-800">
-                  Profile Completion Required
+                  Basic Profile Information Required
                 </h3>
                 <p className="text-sm text-orange-700 mt-1">
-                  You need to complete your profile before you can create or join documents. 
-                  This ensures proper verification and security for all agreements.
+                  You need to complete your basic profile information before you can create or join documents. 
+                  Verification documents (photos, signatures, etc.) will be collected fresh for each document operation 
+                  to ensure security and authenticity.
                 </p>
               </div>
             </div>

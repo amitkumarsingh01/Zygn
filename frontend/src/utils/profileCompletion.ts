@@ -7,6 +7,8 @@ export interface ProfileCompletionStatus {
 }
 
 export const checkProfileCompletion = (user: User): ProfileCompletionStatus => {
+  // Only check basic information fields, not verification documents
+  // Verification documents should be provided fresh for each document operation
   const requiredFields = [
     'name',
     'email', 
@@ -15,10 +17,7 @@ export const checkProfileCompletion = (user: User): ProfileCompletionStatus => {
     'state',
     'govt_id_type',
     'govt_id_number',
-    'profile_pic',
-    'signature_pic',
-    'eye_pic',
-    'fingerprint'
+    'govt_id_image'
   ];
 
   const missingFields: string[] = [];
@@ -49,10 +48,7 @@ export const getFieldDisplayName = (field: string): string => {
     state: 'State',
     govt_id_type: 'Government ID Type',
     govt_id_number: 'Government ID Number',
-    profile_pic: 'Profile Picture',
-    signature_pic: 'Signature',
-    eye_pic: 'Eye Scan',
-    fingerprint: 'Fingerprint'
+    govt_id_image: 'Government ID Image'
   };
   
   return fieldNames[field] || field;

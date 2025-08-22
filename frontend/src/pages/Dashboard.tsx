@@ -93,18 +93,19 @@ const Dashboard: React.FC = () => {
                 <AlertTriangle className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
                   <h3 className="text-sm font-medium text-orange-800">
-                    Complete Your Profile
+                    Complete Your Basic Profile
                   </h3>
                   <p className="text-sm text-orange-700 mt-1">
-                    Your profile is {completionStatus.completionPercentage}% complete. 
-                    You need to complete your profile before creating or joining documents.
+                    Your basic profile is {completionStatus.completionPercentage}% complete. 
+                    You need to complete your basic information before creating or joining documents.
+                    Verification documents will be collected fresh for each operation.
                   </p>
                   <div className="mt-3">
                     <Link
                       to="/profile"
                       className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-orange-700 bg-orange-100 hover:bg-orange-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
                     >
-                      Complete Profile
+                      Complete Basic Profile
                     </Link>
                   </div>
                 </div>

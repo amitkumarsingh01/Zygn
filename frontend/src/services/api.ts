@@ -86,7 +86,7 @@ export const documentsAPI = {
   createDocument: (data: FormData) => 
     api.post<{ message: string; document_id: string; document_code: string }>('/documents/create', data),
   
-  joinDocument: (data: JoinDocumentData) => 
+  joinDocument: (data: FormData) => 
     api.post<{ message: string }>('/documents/join', data),
   
   approveUserJoin: (documentId: string, userId: string) => 

@@ -15,13 +15,14 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { checkProfileCompletion } from '../utils/profileCompletion';
-import ProfileCompletionModal from '../components/ProfileCompletionModal';
+import DocumentVerificationModal from '../components/DocumentVerificationModal';
 
 const DocumentCreate: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationData, setVerificationData] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: '',
     location: '',
@@ -31,15 +32,17 @@ const DocumentCreate: React.FC = () => {
   });
   const [files, setFiles] = useState<File[]>([]);
 
-  // Check profile completion on component mount
+  // Check basic profile completion on component mount
   useEffect(() => {
     if (user) {
       const completionStatus = checkProfileCompletion(user);
       if (!completionStatus.isComplete) {
-        setShowProfileModal(true);
+        toast.error('Please complete your basic profile information first');
+        navigate('/profile');
+        return;
       }
     }
-  }, [user]);
+  }, [user, navigate]);
 
   // Debug: Monitor files state changes
   useEffect(() => {
@@ -159,129 +162,72 @@ const DocumentCreate: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('=== Submit Handler Debug ===');
-    console.log('Form data:', formData);
-    console.log('Files state:', files);
-    console.log('Files state length:', files.length);
-    
     if (!formData.name.trim()) {
-      toast.error('Document name is required');
+      toast.error('Please enter a document name');
       return;
     }
-
+    
     if (files.length === 0) {
       toast.error('Please upload at least one document');
       return;
     }
 
-    // Check profile completion before proceeding
+    // Check basic profile completion before proceeding
     if (user) {
       const completionStatus = checkProfileCompletion(user);
       if (!completionStatus.isComplete) {
-        setShowProfileModal(true);
-        toast.error('Please complete your profile before creating documents');
+        toast.error('Please complete your basic profile information first');
+        navigate('/profile');
         return;
       }
     }
 
+    // Show verification modal to collect fresh verification documents
+    setShowVerificationModal(true);
+  };
+
+  const handleVerificationComplete = async (verificationData: any) => {
+    setShowVerificationModal(false);
+    setVerificationData(verificationData);
+    
+    // Now proceed with document creation
+    await createDocumentWithVerification(verificationData);
+  };
+
+  const createDocumentWithVerification = async (verificationData: any) => {
     setIsLoading(true);
     try {
-      // SIMPLIFIED APPROACH: Use files directly without complex filtering
-      console.log('=== Simplified File Handling ===');
-      console.log('Using files directly from state:', files);
-      
-      // Check if files are actually File objects
-      const fileCheck = files.map(file => ({
-        isFile: file instanceof File,
-        constructor: file.constructor.name,
-        hasSize: 'size' in file,
-        size: file.size,
-        name: file.name
-      }));
-      console.log('File check results:', fileCheck);
-      
-      // Use files directly - no filtering
-      const filesToUpload = files;
-      console.log('Files to upload:', filesToUpload);
-      console.log('Files to upload length:', filesToUpload.length);
-
-      // Create FormData properly
+      // Create FormData for document creation
       const formDataToSend = new FormData();
-      
-      // Add text fields
       formDataToSend.append('name', formData.name.trim());
       if (formData.location.trim()) {
         formDataToSend.append('location', formData.location.trim());
       }
       if (formData.start_date) {
-        // Convert to ISO format that backend expects
-        const startDate = new Date(formData.start_date);
-        formDataToSend.append('start_date', startDate.toISOString());
+        formDataToSend.append('start_date', formData.start_date);
       }
       if (formData.end_date) {
-        // Convert to ISO format that backend expects
-        const endDate = new Date(formData.end_date);
-        formDataToSend.append('end_date', endDate.toISOString());
+        formDataToSend.append('end_date', formData.end_date);
       }
       
-      // Add files - SIMPLIFIED: Use filesToUpload directly
-      console.log('=== Adding Files to FormData ===');
-      filesToUpload.forEach((file, index) => {
-        console.log(`Appending file ${index}:`, {
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          constructor: file.constructor.name,
-          isFile: file instanceof File
-        });
-        // The backend expects 'raw_documents' as the field name
-        // For multiple files, append each with the same field name
+      // Add verification documents
+      if (verificationData.profile_pic) {
+        formDataToSend.append('profile_pic', verificationData.profile_pic);
+      }
+      // Send random value for thumb since it's optional
+      formDataToSend.append('thumb', 'random_thumb_value');
+      if (verificationData.sign) {
+        formDataToSend.append('sign', verificationData.sign);
+      }
+      if (verificationData.eye) {
+        formDataToSend.append('eye', verificationData.eye);
+      }
+      
+      // Add document files
+      files.forEach((file, index) => {
         formDataToSend.append('raw_documents', file);
       });
 
-      // SIMPLIFIED DEBUGGING: Just show the essential info
-      console.log('=== FormData Summary ===');
-      console.log('FormData entries count:', formDataToSend.getAll('raw_documents').length);
-      console.log('FormData name:', formDataToSend.get('name'));
-      console.log('FormData location:', formDataToSend.get('location'));
-      console.log('FormData start_date:', formDataToSend.get('start_date'));
-      console.log('FormData end_date:', formDataToSend.get('end_date'));
-      
-      // Simple FormData test
-      console.log('=== FormData Test ===');
-      const testEntries = Array.from(formDataToSend.entries());
-      console.log('Total FormData entries:', testEntries.length);
-      testEntries.forEach(([key, value], index) => {
-        if (value instanceof File) {
-          console.log(`Entry ${index}: ${key} = File(${value.name}, ${value.size} bytes)`);
-        } else {
-          console.log(`Entry ${index}: ${key} = ${value}`);
-        }
-      });
-      
-      // Verify we have files
-      const rawDocs = formDataToSend.getAll('raw_documents');
-      console.log('Raw documents count:', rawDocs.length);
-      if (rawDocs.length === 0) {
-        throw new Error('No files found in FormData - this should not happen!');
-      }
-
-      // FINAL DEBUGGING: Log exactly what we're sending
-      console.log('=== FINAL API CALL DEBUG ===');
-      console.log('FormData being sent:', formDataToSend);
-      console.log('FormData entries count:', formDataToSend.getAll('raw_documents').length);
-      console.log('FormData raw_documents:', formDataToSend.getAll('raw_documents'));
-      
-      // Log the actual FormData entries
-      const finalEntries = Array.from(formDataToSend.entries());
-      console.log('Final FormData entries:', finalEntries);
-      
-      // Test if FormData is still valid
-      const testFormData = new FormData();
-      testFormData.append('test', 'value');
-      testFormData.append('file', filesToUpload[0]);
-      console.log('Test FormData entries:', Array.from(testFormData.entries()));
-      
       let response;
       
       // Check if this is an agreement initiation
@@ -599,15 +545,12 @@ const DocumentCreate: React.FC = () => {
         </div>
       </form>
 
-      {/* Profile Completion Modal */}
-      <ProfileCompletionModal
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        onCompleteProfile={() => {
-          setShowProfileModal(false);
-          navigate('/profile');
-        }}
-        completionStatus={user ? checkProfileCompletion(user) : { isComplete: false, missingFields: [], completionPercentage: 0 }}
+      {/* Document Verification Modal */}
+      <DocumentVerificationModal
+        isOpen={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+        onComplete={handleVerificationComplete}
+        documentType="create"
       />
     </div>
   );

@@ -2,34 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { documentsAPI } from '../services/api';
-import { 
-  Users, 
-  ArrowLeft, 
-  CheckCircle, 
-  AlertCircle,
-  Copy,
-
-} from 'lucide-react';
+import { ArrowLeft, Users, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { checkProfileCompletion } from '../utils/profileCompletion';
-import ProfileCompletionModal from '../components/ProfileCompletionModal';
+import DocumentVerificationModal from '../components/DocumentVerificationModal';
 
 const DocumentJoin: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [documentCode, setDocumentCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
 
-  // Check profile completion on component mount
+  // Check basic profile completion on component mount
   useEffect(() => {
     if (user) {
       const completionStatus = checkProfileCompletion(user);
       if (!completionStatus.isComplete) {
-        setShowProfileModal(true);
+        toast.error('Please complete your basic profile information first');
+        navigate('/profile');
+        return;
       }
     }
-  }, [user]);
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,19 +34,48 @@ const DocumentJoin: React.FC = () => {
       return;
     }
 
-    // Check profile completion before proceeding
+    // Check basic profile completion before proceeding
     if (user) {
       const completionStatus = checkProfileCompletion(user);
       if (!completionStatus.isComplete) {
-        setShowProfileModal(true);
-        toast.error('Please complete your profile before joining documents');
+        toast.error('Please complete your basic profile information first');
+        navigate('/profile');
         return;
       }
     }
 
+    // Show verification modal to collect fresh verification documents
+    setShowVerificationModal(true);
+  };
+
+  const handleVerificationComplete = async (verificationData: any) => {
+    setShowVerificationModal(false);
+    
+    // Now proceed with document joining
+    await joinDocumentWithVerification(verificationData);
+  };
+
+  const joinDocumentWithVerification = async (verificationData: any) => {
     setIsLoading(true);
     try {
-      await documentsAPI.joinDocument({ document_code: documentCode });
+      // Create FormData for document joining with verification
+      const formDataToSend = new FormData();
+      formDataToSend.append('document_code', documentCode);
+      
+      // Add verification documents
+      if (verificationData.profile_pic) {
+        formDataToSend.append('profile_pic', verificationData.profile_pic);
+      }
+      // Send random value for thumb since it's optional
+      formDataToSend.append('thumb', 'random_thumb_value');
+      if (verificationData.sign) {
+        formDataToSend.append('sign', verificationData.sign);
+      }
+      if (verificationData.eye) {
+        formDataToSend.append('eye', verificationData.eye);
+      }
+
+      await documentsAPI.joinDocument(formDataToSend);
       toast.success('Join request sent successfully! Waiting for approval.');
       navigate('/dashboard');
     } catch (error: any) {
@@ -134,7 +158,7 @@ const DocumentJoin: React.FC = () => {
                   className="text-gray-400 hover:text-gray-600"
                   title="Copy to clipboard"
                 >
-                  <Copy className="h-5 w-5" />
+                  {/* <Copy className="h-5 w-5" /> */}
                 </button>
               </div>
             </div>
@@ -160,7 +184,7 @@ const DocumentJoin: React.FC = () => {
         {/* Help Section */}
         <div className="mt-8 pt-6 border-t border-gray-200">
           <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-            <AlertCircle className="h-4 w-4 mr-2 text-yellow-600" />
+            {/* <AlertCircle className="h-4 w-4 mr-2 text-yellow-600" /> */}
             How to join a document
           </h3>
           <div className="text-sm text-gray-600 space-y-2">
@@ -206,15 +230,12 @@ const DocumentJoin: React.FC = () => {
         </p>
       </div>
 
-      {/* Profile Completion Modal */}
-      <ProfileCompletionModal
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        onCompleteProfile={() => {
-          setShowProfileModal(false);
-          navigate('/profile');
-        }}
-        completionStatus={user ? checkProfileCompletion(user) : { isComplete: false, missingFields: [], completionPercentage: 0 }}
+      {/* Document Verification Modal */}
+      <DocumentVerificationModal
+        isOpen={showVerificationModal}
+        onClose={() => setShowVerificationModal(false)}
+        onComplete={handleVerificationComplete}
+        documentType="join"
       />
     </div>
   );

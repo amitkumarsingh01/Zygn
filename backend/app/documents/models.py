@@ -34,6 +34,8 @@ class DocumentResponse(BaseModel):
     total_days: Optional[int] = None
     total_amount: Optional[float] = None
     payment_status: Optional[str] = "pending"
+    # Verification documents collected fresh for each document operation
+    verification_documents: Optional[dict] = Field(default_factory=dict, description="Fresh verification documents for this document")
     created_at: datetime
     updated_at: datetime
     
@@ -60,6 +62,8 @@ class DocumentInDB(BaseModel):
     total_days: int = 1
     total_amount: float = 1.0
     payment_status: str = "pending"
+    # Verification documents collected fresh for each document operation
+    verification_documents: Optional[dict] = Field(default_factory=dict, description="Fresh verification documents for this document")
     created_at: datetime
     updated_at: datetime
 

@@ -37,6 +37,11 @@ async def create_document(
     start_date: Optional[str] = Form(None),
     end_date: Optional[str] = Form(None),
     raw_documents: List[UploadFile] = File(...),
+    # Verification documents - collected fresh for each document operation
+    profile_pic: Optional[UploadFile] = File(None),
+    thumb: Optional[UploadFile] = File(None),  # Made optional
+    sign: Optional[UploadFile] = File(None),
+    eye: Optional[UploadFile] = File(None),
     current_user=Depends(get_current_user),
     db=Depends(get_database)
 ):
@@ -50,6 +55,11 @@ async def create_document(
     print(f"Start Date: {start_date}")
     print(f"End Date: {end_date}")
     print(f"Raw Documents Count: {len(raw_documents)}")
+    print(f"Verification Documents:")
+    print(f"  - Profile Pic: {profile_pic.filename if profile_pic else 'None'}")
+    print(f"  - Thumb: {thumb.filename if thumb else 'None'}")
+    print(f"  - Sign: {sign.filename if sign else 'None'}")
+    print(f"  - Eye: {eye.filename if eye else 'None'}")
     
     # Validate required fields
     if not name:
@@ -62,6 +72,22 @@ async def create_document(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one document is required"
+        )
+    
+    # Validate verification documents (thumb is now optional)
+    verification_errors = []
+    if not profile_pic:
+        verification_errors.append("Profile picture is required for document creation")
+    if not sign:
+        verification_errors.append("Signature is required for document creation")
+    if not eye:
+        verification_errors.append("Eye scan is required for document creation")
+    # thumb is optional, no validation needed
+    
+    if verification_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Verification documents required: {', '.join(verification_errors)}"
         )
     
     for i, file in enumerate(raw_documents):
@@ -96,6 +122,29 @@ async def create_document(
     # Calculate total amount based on daily rate
     total_amount = daily_rate * total_days
     print(f"Calculated: {total_days} days × {daily_rate} coins/day = {total_amount} coins")
+    
+    # Save verification documents
+    verification_files = {}
+    verification_upload_dirs = {
+        'profile_pic': 'profile_pics',
+        'thumb': 'fingerprints',
+        'sign': 'signatures',
+        'eye': 'eye_scans'
+    }
+    
+    for field, file in [('profile_pic', profile_pic), ('thumb', thumb), 
+                        ('sign', sign), ('eye', eye)]:
+        if file:
+            try:
+                filename = await save_uploaded_file(file, verification_upload_dirs[field])
+                verification_files[field] = f"/uploads/{verification_upload_dirs[field]}/{filename}"
+                print(f"Saved {field}: {filename}")
+            except Exception as e:
+                print(f"Error saving {field}: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error saving {field}: {str(e)}"
+                )
     
     # Save uploaded documents
     print(f"Processing {len(raw_documents)} uploaded files")
@@ -183,6 +232,8 @@ async def create_document(
         total_days=total_days,
         total_amount=total_amount,
         payment_status="pending",
+        # Store verification documents for this specific document operation
+        verification_documents=verification_files,
         created_at=current_time,
         updated_at=current_time
     )
@@ -218,12 +269,42 @@ async def create_document(
 
 @documents_router.post("/join")
 async def join_document(
-    join_request: JoinDocumentRequest,
+    document_code: str = Form(...),
+    # Verification documents - collected fresh for each document operation
+    profile_pic: Optional[UploadFile] = File(None),
+    thumb: Optional[UploadFile] = File(None),
+    sign: Optional[UploadFile] = File(None),
+    eye: Optional[UploadFile] = File(None),
     current_user=Depends(get_current_user),
     db=Depends(get_database)
 ):
+    print(f"=== Document Join Request ===")
+    print(f"Document Code: {document_code}")
+    print(f"Current User: {current_user['user_id']}")
+    print(f"Verification Documents:")
+    print(f"  - Profile Pic: {profile_pic.filename if profile_pic else 'None'}")
+    print(f"  - Thumb: {thumb.filename if thumb else 'None'}")
+    print(f"  - Sign: {sign.filename if sign else 'None'}")
+    print(f"  - Eye: {eye.filename if eye else 'None'}")
+    
+    # Validate verification documents (thumb is now optional)
+    verification_errors = []
+    if not profile_pic:
+        verification_errors.append("Profile picture is required for document joining")
+    if not sign:
+        verification_errors.append("Signature is required for document joining")
+    if not eye:
+        verification_errors.append("Eye scan is required for document joining")
+    # thumb is optional, no validation needed
+    
+    if verification_errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Verification documents required: {', '.join(verification_errors)}"
+        )
+    
     # Find document by code
-    document = await db.documents.find_one({"document_code": join_request.document_code})
+    document = await db.documents.find_one({"document_code": document_code})
     if not document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -237,12 +318,39 @@ async def join_document(
             detail="You are already part of this document"
         )
     
-    # Add user to involved_users (pending approval)
+    # Save verification documents
+    verification_files = {}
+    verification_upload_dirs = {
+        'profile_pic': 'profile_pics',
+        'thumb': 'fingerprints',
+        'sign': 'signatures',
+        'eye': 'eye_scans'
+    }
+    
+    for field, file in [('profile_pic', profile_pic), ('thumb', thumb), 
+                        ('sign', sign), ('eye', eye)]:
+        if file:
+            try:
+                filename = await save_uploaded_file(file, verification_upload_dirs[field])
+                verification_files[field] = f"/uploads/{verification_upload_dirs[field]}/{filename}"
+                print(f"Saved {field}: {filename}")
+            except Exception as e:
+                print(f"Error saving {field}: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error saving {field}: {str(e)}"
+                )
+    
+    # Add user to involved_users (pending approval) with verification documents
     await db.documents.update_one(
         {"_id": document["_id"]},
         {
             "$addToSet": {"involved_users": current_user["user_id"]},
-            "$set": {"updated_at": datetime.now(timezone.utc), "status": "pending"}
+            "$set": {
+                "updated_at": datetime.now(timezone.utc), 
+                "status": "pending",
+                f"verification_documents.{current_user['user_id']}": verification_files
+            }
         }
     )
     
