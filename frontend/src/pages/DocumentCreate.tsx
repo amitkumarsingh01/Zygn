@@ -7,8 +7,6 @@ import {
   Upload, 
   X, 
   FileText, 
-  MapPin, 
-  Calendar,
   ArrowLeft,
   CheckCircle,
 } from 'lucide-react';
@@ -165,6 +163,11 @@ const DocumentCreate: React.FC = () => {
       return;
     }
     
+    if (!formData.target_user_char_id.trim()) {
+      toast.error('Please enter a target user ID to create an agreement');
+      return;
+    }
+    
     if (files.length === 0) {
       toast.error('Please upload at least one document');
       return;
@@ -308,152 +311,99 @@ const DocumentCreate: React.FC = () => {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
         </button>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Create New Document</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Create New Agreement</h1>
         <p className="mt-2 text-sm sm:text-base text-gray-600">
-          Upload your documents and set up the agreement details. Share the generated code with other parties to join.
+          Create an agreement with another user by uploading your documents and specifying their user ID. 
+          The system will automatically calculate payment terms based on the agreement duration.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
-        {/* Basic Information */}
-        <div className="card">
-          <h2 className="text-lg font-medium text-gray-900 mb-6 flex items-center">
-            <FileText className="h-5 w-5 mr-2 text-primary-600" />
-            Basic Information
-          </h2>
-          
-          <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Document Name *
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                required
-                value={formData.name}
-                onChange={handleChange}
-                className="input-field mt-1"
-                placeholder="e.g., Rental Agreement, Business Contract"
-              />
-            </div>
+        {/* Requirements Summary */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-blue-900 mb-2">Required Fields:</h3>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>• <strong>Document Name</strong> - Name of your agreement</li>
+            <li>• <strong>Upload Documents</strong> - At least one document file</li>
+            <li>• <strong>Target User ID</strong> - 8-character ID of the person you're making the agreement with</li>
+          </ul>
+          <p className="text-xs text-blue-600 mt-2">
+            Optional: Location, start date, end date (will be calculated automatically)
+          </p>
+        </div>
 
-            <div>
-              <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-                Location
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MapPin className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  className="input-field pl-10"
-                  placeholder="e.g., New York, NY"
-                />
-              </div>
-            </div>
+        {/* Document Details */}
+        <div className="grid grid-cols-1 sm:col-span-2 gap-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              Document Name 
+              <span className="text-red-500 ml-1">*</span>
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              className="input-field"
+              placeholder="e.g., Rental Agreement, Service Contract"
+              required
+            />
+          </div>
 
-            <div>
-              <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
-                Start Date
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Calendar className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="date"
-                  id="start_date"
-                  name="start_date"
-                  value={formData.start_date}
-                  onChange={handleChange}
-                  className="input-field pl-10"
-                />
-              </div>
-            </div>
+          <div>
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700">
+              Location (Optional)
+            </label>
+            <input
+              type="text"
+              id="location"
+              name="location"
+              value={formData.location}
+              onChange={handleChange}
+              className="input-field"
+              placeholder="e.g., Mumbai, Maharashtra"
+            />
+          </div>
 
-            <div>
-              <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">
-                End Date
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Calendar className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="date"
-                  id="end_date"
-                  name="end_date"
-                  value={formData.end_date}
-                  onChange={handleChange}
-                  className="input-field pl-10"
-                />
-              </div>
-            </div>
+          <div>
+            <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
+              Start Date (Optional)
+            </label>
+            <input
+              type="date"
+              id="start_date"
+              name="start_date"
+              value={formData.start_date}
+              onChange={handleChange}
+              className="input-field"
+            />
+          </div>
 
-            {/* Agreement with User Section */}
-            <div className="col-span-1 sm:col-span-2 border-t pt-6 mt-6">
-              <h3 className="text-md font-medium text-gray-900 mb-4">Start Agreement with Another User (Optional)</h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label htmlFor="target_user_char_id" className="block text-medium text-gray-700">
-                    8-Character User ID
-                  </label>
-                  <input
-                    type="text"
-                    id="target_user_char_id"
-                    name="target_user_char_id"
-                    value={formData.target_user_char_id}
-                    onChange={handleChange}
-                    className="input-field"
-                    placeholder="e.g., nGyOrdDx"
-                    maxLength={8}
-                  />
-                </div>
-
-                <div className="col-span-1 sm:col-span-2">
-                  <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
-                    <strong>Note:</strong> Daily rate is automatically set to <span className="font-semibold">1 coin per day</span>. 
-                    Total days and amount will be calculated automatically based on your start and end dates.
-                    <br />
-                    <span className="text-xs text-gray-500 mt-1">
-                      Example: 7-day agreement = 7 coins, 30-day agreement = 30 coins
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              {formData.target_user_char_id && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> Daily rate is automatically set to 1 coin per day. 
-                    Total amount will be calculated automatically based on your start and end dates.
-                  </p>
-                </div>
-              )}
-            </div>
+          <div>
+            <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">
+              End Date (Optional)
+            </label>
+            <input
+              type="date"
+              id="end_date"
+              name="end_date"
+              value={formData.end_date}
+              onChange={handleChange}
+              className="input-field"
+            />
           </div>
         </div>
 
-        {/* File Upload */}
-        <div className="card">
-          <h2 className="text-lg font-medium text-gray-900 mb-6 flex items-center">
-            <Upload className="h-5 w-5 mr-2 text-primary-600" />
-            Upload Documents
-          </h2>
+        {/* File Upload Section */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Upload Documents 
+            <span className="text-red-500 ml-1">*</span>
+          </label>
 
           {/* Simple file input as primary method */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Files
-            </label>
             <input
               type="file"
               multiple
@@ -524,11 +474,68 @@ const DocumentCreate: React.FC = () => {
           )}
         </div>
 
+        {/* Agreement with User Section */}
+        <div className="col-span-1 sm:col-span-2 border-t pt-6 mt-6">
+          <h3 className="text-md font-medium text-gray-900 mb-4">
+            Start Agreement with Another User 
+            <span className="text-red-500 ml-1">*</span>
+          </h3>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="target_user_char_id" className="block text-medium text-gray-700">
+                8-Character User ID 
+                <span className="text-red-500 ml-1">*</span>
+              </label>
+              <input
+                type="text"
+                id="target_user_char_id"
+                name="target_user_char_id"
+                value={formData.target_user_char_id}
+                onChange={handleChange}
+                className="input-field"
+                placeholder="e.g., nGyOrdDx"
+                maxLength={8}
+                required
+              />
+              {!formData.target_user_char_id && (
+                <p className="text-sm text-red-600 mt-1">
+                  User ID is required to create an agreement
+                </p>
+              )}
+            </div>
+
+            <div className="col-span-1 sm:col-span-2">
+              <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
+                <strong>Required:</strong> You must specify another user to create an agreement. 
+                Daily rate is automatically set to <span className="font-semibold">1 coin per day</span>. 
+                Total days and amount will be calculated automatically based on your start and end dates.
+                <br />
+                <span className="text-xs text-gray-500 mt-1">
+                  Example: 7-day agreement = 7 coins, 30-day agreement = 30 coins
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {formData.target_user_char_id && (
+            <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+              <p className="text-sm text-green-800">
+                <strong>✓ Agreement Ready:</strong> You will create an agreement with user <span className="font-mono font-semibold">{formData.target_user_char_id}</span>
+                <br />
+                <span className="text-xs text-green-600 mt-1">
+                  Daily rate: 1 coin per day. Total amount will be calculated automatically.
+                </span>
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Submit Button */}
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={isLoading || files.length === 0 || !formData.name.trim()}
+            disabled={isLoading || files.length === 0 || !formData.name.trim() || !formData.target_user_char_id.trim()}
             className="btn-primary inline-flex items-center disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
           >
             {isLoading ? (
@@ -536,7 +543,7 @@ const DocumentCreate: React.FC = () => {
             ) : (
               <CheckCircle className="h-5 w-5 mr-2" />
             )}
-            {isLoading ? 'Creating...' : 'Create Document'}
+            {isLoading ? 'Creating...' : 'Create Document & Agreement'}
           </button>
         </div>
       </form>

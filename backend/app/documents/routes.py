@@ -1832,5 +1832,166 @@ async def initiate_agreement(
             detail=f"Error creating agreement: {str(e)}"
         )
 
+@documents_router.post("/{document_id}/respond-agreement")
+async def respond_to_agreement(
+    document_id: str,
+    response: str = Form(..., description="Response: 'accept' or 'reject'"),
+    profile_pic: Optional[UploadFile] = File(None, description="Profile picture/selfie for verification (required if accepting)"),
+    thumb: Optional[UploadFile] = File(None, description="Fingerprint scan (required if accepting)"),
+    sign: Optional[UploadFile] = File(None, description="Signature image for verification (required if accepting)"),
+    eye: Optional[UploadFile] = File(None, description="Eye scan for verification (required if accepting)"),
+    current_user=Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """
+    Accept or reject an agreement request.
+    This endpoint allows users to respond to agreement requests initiated by other users.
+    When accepting, verification documents are required.
+    """
+    print(f"=== Agreement Response Request ===")
+    print(f"Document ID/Code: {document_id}")
+    print(f"Current user: {current_user['user_id']}")
+    print(f"Response: {response}")
+    
+    if response not in ['accept', 'reject']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Response must be either 'accept' or 'reject'"
+        )
+    
+    # Find document by ObjectId or code
+    document = None
+    try:
+        if ObjectId.is_valid(document_id):
+            document = await db.documents.find_one({"_id": ObjectId(document_id)})
+        else:
+            document = await db.documents.find_one({"document_code": document_id})
+    except Exception as e:
+        print(f"Error finding document: {e}")
+        pass
+    
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    # Check if current user is the target user (not the initiator)
+    if document["primary_user"] == current_user["user_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot respond to your own agreement request"
+        )
+    
+    # Check if current user is in the involved users list
+    if current_user["user_id"] not in document["involved_users"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are not part of this agreement"
+        )
+    
+    # Check if document is in pending status
+    if document.get("status") != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This agreement is not in pending status"
+        )
+    
+    current_time = datetime.now(timezone.utc)
+    
+    if response == 'accept':
+        # Validate required verification documents
+        if not profile_pic or not thumb or not sign or not eye:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="All verification documents (profile pic, fingerprint, signature, eye scan) are required to accept the agreement"
+            )
+        
+        # Save verification documents
+        verification_files = {}
+        try:
+            if profile_pic:
+                profile_pic_path = await save_uploaded_file(profile_pic, "profile_pics")
+                verification_files["profile_pic"] = profile_pic_path
+            
+            if thumb:
+                thumb_path = await save_uploaded_file(thumb, "fingerprints")
+                verification_files["fingerprint"] = thumb_path
+            
+            if sign:
+                sign_path = await save_uploaded_file(sign, "signatures")
+                verification_files["signature"] = sign_path
+            
+            if eye:
+                eye_path = await save_uploaded_file(eye, "eye_scans")
+                verification_files["eye_scan"] = eye_path
+                
+        except Exception as e:
+            print(f"Error saving verification files: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to save verification documents"
+            )
+        
+        # Accept the agreement
+        await db.documents.update_one(
+            {"_id": document["_id"]},
+            {
+                "$set": {
+                    "status": "approved",
+                    "updated_at": current_time,
+                    f"user_approvals.{current_user['user_id']}": {
+                        "approved": True,
+                        "approved_at": current_time,
+                        "is_primary": False,
+                        "verification_files": verification_files
+                    }
+                }
+            }
+        )
+        
+        # Update primary user's approval status as well
+        await db.documents.update_one(
+            {"_id": document["_id"]},
+            {
+                "$set": {
+                    f"user_approvals.{document['primary_user']}": {
+                        "approved": True,
+                        "approved_at": current_time,
+                        "is_primary": True
+                    }
+                }
+            }
+        )
+        
+        message = "Agreement accepted successfully! The agreement is now active."
+        status = "approved"
+        
+    else:  # reject
+        # Reject the agreement - remove current user from involved users
+        await db.documents.update_one(
+            {"_id": document["_id"]},
+            {
+                "$pull": {"involved_users": current_user["user_id"]},
+                "$set": {
+                    "status": "rejected",
+                    "updated_at": current_time,
+                    "rejected_by": current_user["user_id"],
+                    "rejected_at": current_time
+                }
+            }
+        )
+        
+        message = "Agreement rejected successfully."
+        status = "rejected"
+    
+    return {
+        "message": message,
+        "document_status": status,
+        "response": response,
+        "document_id": str(document["_id"]),
+        "document_code": document.get("document_code", "")
+    }
+
 
 

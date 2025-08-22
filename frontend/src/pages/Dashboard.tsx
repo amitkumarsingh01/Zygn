@@ -5,20 +5,20 @@ import { documentsAPI } from '../services/api';
 import { Document } from '../types';
 import { 
   Plus, 
-  Users, 
   FileText, 
-  Calendar, 
   MapPin, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle,
-  Eye,
-  MessageCircle,
+  Calendar, 
   CreditCard,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Users,
+  MessageCircle,
   User,
-
+  Eye,
   AlertTriangle
 } from 'lucide-react';
+import PendingAgreementsModal from '../components/PendingAgreementsModal';
 import toast from 'react-hot-toast';
 import { checkProfileCompletion } from '../utils/profileCompletion';
 
@@ -26,6 +26,8 @@ const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showPendingAgreements, setShowPendingAgreements] = useState(false);
+  const [pendingAgreementsCount, setPendingAgreementsCount] = useState(0);
 
   useEffect(() => {
     fetchDocuments();
@@ -33,9 +35,19 @@ const Dashboard: React.FC = () => {
 
   const fetchDocuments = async () => {
     try {
+      setIsLoading(true);
       const response = await documentsAPI.getMyDocuments();
       setDocuments(response.data);
-    } catch (error) {
+      
+      // Count pending agreements where current user is not the primary user
+      const pendingCount = response.data.filter((doc: any) => 
+        doc.status === 'pending' && 
+        user?.user_id && 
+        doc.primary_user !== user.user_id && 
+        doc.involved_users.includes(user.user_id)
+      ).length;
+      setPendingAgreementsCount(pendingCount);
+    } catch (error: any) {
       console.error('Error fetching documents:', error);
       toast.error('Failed to load documents');
     } finally {
@@ -73,10 +85,15 @@ const Dashboard: React.FC = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const handleAgreementResponded = () => {
+    // Refresh documents to update counts and statuses
+    fetchDocuments();
+  };
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
       </div>
     );
   }
@@ -140,6 +157,16 @@ const Dashboard: React.FC = () => {
             <Users className="h-4 w-4 mr-2" />
             Join Document
           </Link>
+          
+          {pendingAgreementsCount > 0 && (
+            <button
+              onClick={() => setShowPendingAgreements(true)}
+              className="btn-secondary inline-flex items-center justify-center w-full sm:w-auto bg-yellow-600 hover:bg-yellow-700 text-white"
+            >
+              <AlertCircle className="h-4 w-4 mr-2" />
+              Pending Agreements ({pendingAgreementsCount})
+            </button>
+          )}
         </div>
       </div>
 
@@ -180,6 +207,20 @@ const Dashboard: React.FC = () => {
               <p className="text-xs sm:text-sm font-medium text-gray-500">Pending</p>
               <p className="text-lg sm:text-2xl font-semibold text-gray-900">
                 {documents.filter(doc => doc.status === 'pending').length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
+            </div>
+            <div className="ml-3 sm:ml-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-500">Pending Agreements</p>
+              <p className="text-lg sm:text-2xl font-semibold text-gray-900">
+                {pendingAgreementsCount}
               </p>
             </div>
           </div>
@@ -312,6 +353,11 @@ const Dashboard: React.FC = () => {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(document.status)}`}>
                           {getStatusIcon(document.status)}
                           <span className="ml-1 capitalize">{document.status}</span>
+                          {document.status === 'pending' && user?.user_id && document.primary_user !== user.user_id && document.involved_users.includes(user.user_id) && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              ⏳ Agreement Request
+                            </span>
+                          )}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -322,6 +368,15 @@ const Dashboard: React.FC = () => {
                           <CreditCard className="h-3 w-3 mr-1" />
                           Manage
                         </Link>
+                        {document.status === 'pending' && user?.user_id && document.primary_user !== user.user_id && document.involved_users.includes(user.user_id) && (
+                          <button
+                            onClick={() => setShowPendingAgreements(true)}
+                            className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-yellow-600 bg-yellow-100 hover:bg-yellow-200"
+                          >
+                            <Clock className="h-3 w-3 mr-1" />
+                            Respond
+                          </button>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {document.location || 'N/A'}
@@ -419,6 +474,13 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Pending Agreements Modal */}
+      <PendingAgreementsModal
+        isOpen={showPendingAgreements}
+        onClose={() => setShowPendingAgreements(false)}
+        onAgreementResponded={handleAgreementResponded}
+      />
     </div>
   );
 };

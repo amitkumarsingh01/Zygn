@@ -113,6 +113,16 @@ export const documentsAPI = {
 
   updatePricing: (data: { daily_rate: number }) =>
     api.put<{ message: string; daily_rate: number }>('/documents/pricing', data),
+
+  // Agreement response endpoint
+  respondToAgreement: (documentId: string, response: 'accept' | 'reject', verificationFiles?: FormData) => {
+    const formData = verificationFiles || new FormData();
+    formData.append('response', response);
+    return api.post<{ message: string; document_status: string; response: string; document_id: string; document_code: string }>(
+      `/documents/${documentId}/respond-agreement`,
+      formData
+    );
+  },
 };
 
 // Messaging API
