@@ -1,15 +1,11 @@
 import axios from 'axios';
-import { 
-  User, 
-  Document, 
-  Message, 
-  Wallet, 
-  Transaction, 
-  Payment,
-  LoginData, 
+import {
+  User,
+  LoginData,
   RegisterData,
-  JoinDocumentData,
-
+  // DocumentFormData,
+  Document,
+  // JoinDocumentData,
   DocumentPaymentSetup,
   PaymentCalculationResponse
 } from '../types';
@@ -28,7 +24,7 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  
+
   // Handle Content-Type for different data types
   if (config.data instanceof FormData) {
     // For FormData, let browser set Content-Type with boundary
@@ -40,7 +36,7 @@ api.interceptors.request.use((config) => {
     // For JSON data, set application/json
     config.headers['Content-Type'] = 'application/json';
   }
-  
+
   return config;
 });
 
@@ -59,63 +55,63 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  register: (data: RegisterData) => 
+  register: (data: RegisterData) =>
     api.post<{ message: string; user_id: string; char_id: string; redirect_to_login: boolean }>('/auth/register', data),
-  
-  login: (data: LoginData) => 
+
+  login: (data: LoginData) =>
     api.post<{ access_token: string; token_type: string; user_id: string; char_id: string }>('/auth/login', data),
 };
 
 // Users API
 export const usersAPI = {
-  getProfile: () => 
+  getProfile: () =>
     api.get<User>('/users/profile'),
-  
-  updateProfile: (data: FormData) => 
+
+  updateProfile: (data: FormData) =>
     api.put<{ message: string }>('/users/profile', data),
-  
-  getUserById: (userId: string) => 
+
+  getUserById: (userId: string) =>
     api.get<User>(`/users/${userId}`), // Works with both user_id and char_id
-  
-  getAllUsers: () => 
+
+  getAllUsers: () =>
     api.get<User[]>('/users/all'),
 };
 
 // Documents API
 export const documentsAPI = {
-  createDocument: (data: FormData) => 
+  createDocument: (data: FormData) =>
     api.post<{ message: string; document_id: string; document_code: string }>('/documents/create', data),
-  
-  joinDocument: (data: FormData) => 
+
+  joinDocument: (data: FormData) =>
     api.post<{ message: string }>('/documents/join', data),
-  
-  approveUserJoin: (documentId: string, userId: string) => 
+
+  approveUserJoin: (documentId: string, userId: string) =>
     api.put<{ message: string }>(`/documents/${documentId}/approve/${userId}`), // Works with both document_id and document_code
-  
-  getMyDocuments: () => 
+
+  getMyDocuments: () =>
     api.get<Document[]>('/documents/my-documents'),
-  
-  getDocument: (documentId: string) => 
+
+  getDocument: (documentId: string) =>
     api.get<Document>(`/documents/${documentId}`), // Works with both document_id and document_code
-  
-  getFinalPdf: (documentId: string) => 
+
+  getFinalPdf: (documentId: string) =>
     api.get<Blob>(`/documents/${documentId}/final-pdf`, { responseType: 'blob' as any }),
 
-  finalizeDocument: (documentId: string, finalDocuments?: FormData) => 
+  finalizeDocument: (documentId: string, finalDocuments?: FormData) =>
     api.patch<{ message: string }>(`/documents/${documentId}/finalize`, finalDocuments ?? new FormData()), // Works with both document_id and document_code
-  
+
   // Simple agreement initiation
-  initiateAgreement: (data: { target_user_char_id: string; name: string; location?: string }) => 
+  initiateAgreement: (data: { target_user_char_id: string; name: string; location?: string }) =>
     api.post<{ message: string; document_id: string; document_code: string; target_user: any; daily_rate: number; total_days: number; total_amount: number }>('/documents/initiate-agreement', data),
-  
+
   // Pricing Configuration
-  getPricing: () => 
+  getPricing: () =>
     api.get<{ daily_rate: number; is_active: boolean; created_at: string; updated_at: string }>('/documents/pricing'),
-  
-  createPricing: (data: { daily_rate: number }) => 
+
+  createPricing: (data: { daily_rate: number }) =>
     api.post<{ message: string; pricing_id: string; daily_rate: number }>('/documents/pricing', data),
-  
-  updatePricing: (data: { daily_rate: number }) => 
+
+  updatePricing: (data: { daily_rate: number }) =>
     api.put<{ message: string; daily_rate: number }>('/documents/pricing', data),
 };
 
@@ -130,19 +126,19 @@ export const messagingAPI = {
     }
     return api.post<{ message: string; message_id: string }>('/messaging/send', form);
   },
-  
-  getConversation: (userId: string) => 
-    api.get<Message[]>(`/messaging/conversations/${userId}`), // Works with both user_id and char_id
-  
-  getUnreadCount: () => 
+
+  getConversation: (userId: string) =>
+    api.get<any[]>(`/messaging/conversations/${userId}`), // Works with both user_id and char_id
+
+  getUnreadCount: () =>
     api.get<{ unread_count: number }>('/messaging/unread-count'),
 };
 
 // Wallet API
 export const walletAPI = {
-  getBalance: () => 
-    api.get<Wallet>('/wallet/balance'),
-  
+  getBalance: () =>
+    api.get<any>('/wallet/balance'),
+
   addFunds: (data: { amount: number; payment_receipt?: File }) => {
     const form = new FormData();
     form.append('amount', String(data.amount));
@@ -151,53 +147,53 @@ export const walletAPI = {
     }
     return api.post<{ message: string; amount: number }>('/wallet/add-funds', form);
   },
-  
-  getTransactions: () => 
-    api.get<Transaction[]>('/wallet/transactions'),
+
+  getTransactions: () =>
+    api.get<any[]>('/wallet/transactions'),
 };
 
 // Enhanced Payments API with Payment Gateway
 export const paymentsAPI = {
   // Legacy payment endpoints
-  createPayment: (data: { document_id: string; amount: number; duration_days: number; split_percentage?: number }) => 
+  createPayment: (data: { document_id: string; amount: number; duration_days: number; split_percentage?: number }) =>
     api.post<{ message: string; payment_id: string; transaction_id: string }>('/payments/create', data),
-  
-  confirmPayment: (paymentId: string) => 
+
+  confirmPayment: (paymentId: string) =>
     api.put<{ message: string }>(`/payments/${paymentId}/confirm`),
-  
-  getMyPayments: () => 
-    api.get<Payment[]>('/payments/my-payments'),
-  
+
+  getMyPayments: () =>
+    api.get<any[]>('/payments/my-payments'),
+
   // Document-specific payment endpoints
-  getDocumentPayments: (documentId: string) => 
-    api.get<Payment[]>(`/payments/document/${documentId}/payments`), // Works with both document_id and document_code
-  
+  getDocumentPayments: (documentId: string) =>
+    api.get<any[]>(`/payments/document/${documentId}/payments`), // Works with both document_id and document_code
+
   // New Payment Gateway endpoints
-  calculateDocumentPayment: (documentId: string) => 
+  calculateDocumentPayment: (documentId: string) =>
     api.get<PaymentCalculationResponse>(`/payments/document/${documentId}/calculate`), // Works with both document_id and document_code
-  
-  setupPaymentDistribution: (documentId: string, data: DocumentPaymentSetup) => 
+
+  setupPaymentDistribution: (documentId: string, data: DocumentPaymentSetup) =>
     api.post<{ message: string }>(`/payments/document/${documentId}/setup-distribution`, data), // Works with both document_id and document_code
-  
-  getDocumentPaymentStatus: (documentId: string) => 
+
+  getDocumentPaymentStatus: (documentId: string) =>
     api.get<any>(`/payments/document/${documentId}/payment-status`), // Works with both document_id and document_code
-  
-  makeDocumentPayment: (documentId: string) => 
+
+  makeDocumentPayment: (documentId: string) =>
     api.post<{ message: string }>(`/payments/document/${documentId}/pay`), // Works with both document_id and document_code
 };
 
         // User Management in Documents
         export const documentUsersAPI = {
-          addUserToDocument: (documentId: string, targetUserCharId: string) => 
+          addUserToDocument: (documentId: string, targetUserCharId: string) =>
             api.post<{ message: string; target_user: any }>(
               `/documents/${documentId}/add-user`,
               new URLSearchParams({ target_user_char_id: targetUserCharId })
             ),
-          
-          approveUserJoin: (documentId: string, userId: string) => 
+
+          approveUserJoin: (documentId: string, userId: string) =>
             api.put<{ message: string; document_status: string }>(`/documents/${documentId}/approve-user/${userId}`),
-          
-          removeUserFromDocument: (documentId: string, userId: string) => 
+
+          removeUserFromDocument: (documentId: string, userId: string) =>
             api.delete<{ message: string; document_status: string }>(`/documents/${documentId}/remove-user/${userId}`),
         };
 

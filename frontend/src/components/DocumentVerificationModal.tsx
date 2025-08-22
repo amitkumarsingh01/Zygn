@@ -49,7 +49,6 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
   // Signature board refs
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [signatureData, setSignatureData] = useState<ImageData | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -63,10 +62,15 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
 
   const startCamera = async (type: 'profile' | 'eye') => {
     try {
+      console.log('Starting camera for:', type);
       setCameraLoading(true);
       setCameraError(null);
+      setCapturedImage(null);
+      setIsPreviewMode(false);
+      setActiveCamera(type);
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: false,
         video: { 
           facingMode: type === 'profile' ? 'user' : 'user',
           width: { ideal: 1280 },
@@ -74,10 +78,45 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
         } 
       });
       
+      console.log('Camera stream obtained:', stream);
+      streamRef.current = stream;
+      
       if (videoRef.current) {
+        console.log('Setting video srcObject');
         videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-        setActiveCamera(type);
+        videoRef.current.muted = true;
+        videoRef.current.playsInline = true;
+        videoRef.current.autoplay = true;
+        
+        // Add event listeners for debugging
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Video metadata loaded, dimensions:', videoRef.current?.videoWidth, 'x', videoRef.current?.videoHeight);
+        };
+        
+        videoRef.current.oncanplay = () => {
+          console.log('Video can play');
+        };
+        
+        videoRef.current.onplay = () => {
+          console.log('Video started playing');
+        };
+        
+        videoRef.current.onerror = (e) => {
+          console.error('Video error:', e);
+        };
+        
+        // Force play the video
+        try {
+          await videoRef.current.play();
+          console.log('Video play successful');
+          setCameraLoading(false);
+        } catch (playError) {
+          console.error('Video play failed:', playError);
+          // Even if play fails, try to show the video
+          setCameraLoading(false);
+        }
+      } else {
+        console.log('Video ref not available');
         setCameraLoading(false);
       }
     } catch (error) {
@@ -85,19 +124,16 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
       setCameraLoading(false);
       setCameraError('Unable to access camera. Please check permissions and try again.');
       
-      // Show user-friendly error message
       if (error instanceof Error) {
-        if (error.name === 'NotAllowedError') {
+        if ((error as any).name === 'NotAllowedError') {
           setCameraError('Camera access denied. Please allow camera permissions and try again.');
-        } else if (error.name === 'NotFoundError') {
+        } else if ((error as any).name === 'NotFoundError') {
           setCameraError('No camera found on your device. Please connect a camera and try again.');
-        } else if (error.name === 'NotReadableError') {
+        } else if ((error as any).name === 'NotReadableError') {
           setCameraError('Camera is already in use by another application. Please close other camera apps and try again.');
         } else {
           setCameraError('Camera error: ' + error.message);
         }
-      } else {
-        setCameraError('Unable to access camera. Please check permissions and try again.');
       }
     }
   };
@@ -120,9 +156,12 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
       const context = canvas.getContext('2d');
       
       if (context) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0);
+        // Fallback sizes if metadata not ready
+        const vw = video.videoWidth || 640;
+        const vh = video.videoHeight || 480;
+        canvas.width = vw;
+        canvas.height = vh;
+        context.drawImage(video, 0, 0, vw, vh);
         
         canvas.toBlob((blob) => {
           if (blob) {
@@ -413,7 +452,9 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
                         ref={videoRef}
                         autoPlay
                         playsInline
+                        muted
                         className="w-full h-full object-cover"
+                        style={{ transform: 'scaleX(-1)' }} // Mirror the camera
                       />
                       <canvas ref={canvasRef} className="hidden" />
                       
@@ -427,6 +468,11 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
                         <div className="absolute top-2 left-2 bg-white/80 text-black px-2 py-1 rounded text-xs font-medium">
                           {activeCamera === 'profile' ? 'FACE' : 'EYE'}
                         </div>
+                      </div>
+                      
+                      {/* Debug Info */}
+                      <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                        {videoRef.current?.readyState || '0'} | {videoRef.current?.videoWidth || '0'}x{videoRef.current?.videoHeight || '0'}
                       </div>
                     </div>
                     

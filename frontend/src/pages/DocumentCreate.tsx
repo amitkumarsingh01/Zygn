@@ -22,7 +22,6 @@ const DocumentCreate: React.FC = () => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [verificationData, setVerificationData] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: '',
     location: '',
@@ -188,7 +187,6 @@ const DocumentCreate: React.FC = () => {
 
   const handleVerificationComplete = async (verificationData: any) => {
     setShowVerificationModal(false);
-    setVerificationData(verificationData);
     
     // Now proceed with document creation
     await createDocumentWithVerification(verificationData);
@@ -224,7 +222,7 @@ const DocumentCreate: React.FC = () => {
       }
       
       // Add document files
-      files.forEach((file, index) => {
+      files.forEach((file) => {
         formDataToSend.append('raw_documents', file);
       });
 
