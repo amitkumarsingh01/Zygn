@@ -40,14 +40,6 @@ const DocumentCreate: React.FC = () => {
     }
   }, [user, navigate]);
 
-  // Debug: Monitor files state changes
-  useEffect(() => {
-    console.log('Files state changed:', files);
-    console.log('Files types:', files.map(f => typeof f));
-    console.log('Files constructors:', files.map(f => f.constructor.name));
-    console.log('Files are File instances:', files.map(f => f instanceof File));
-  }, [files]);
-
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
       'application/pdf': ['.pdf'],
@@ -56,24 +48,11 @@ const DocumentCreate: React.FC = () => {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
     },
     onDrop: (acceptedFiles) => {
-      console.log('=== Dropzone onDrop Debug ===');
-      console.log('Accepted files:', acceptedFiles);
-      console.log('Accepted files length:', acceptedFiles.length);
-      console.log('File types:', acceptedFiles.map(f => typeof f));
-      console.log('File constructors:', acceptedFiles.map(f => f.constructor.name));
-      
       // Ensure we're getting actual File objects and not dropzone file objects
       const validFiles = acceptedFiles.filter(file => {
-        console.log('Checking dropzone file:', file);
-        console.log('Dropzone file type:', typeof file);
-        console.log('Dropzone file constructor:', file.constructor.name);
-        console.log('Dropzone file is File instance:', file instanceof File);
-        console.log('Dropzone file size:', file.size);
-        
         // Check if it's a proper File object
         return file instanceof File && file.size > 0;
       }).map(file => {
-        console.log('Processing dropzone file:', file);
         // Create a new File object to ensure it's a proper File instance
         // This handles cases where dropzone might wrap the file
         if (file instanceof File) {
@@ -81,24 +60,13 @@ const DocumentCreate: React.FC = () => {
             type: file.type,
             lastModified: file.lastModified 
           });
-          console.log('Created new File object:', newFile);
           return newFile;
         }
         return file;
       });
-
-      console.log('Valid dropzone files:', validFiles);
-      console.log('Valid dropzone files length:', validFiles.length);
-
-      if (validFiles.length !== acceptedFiles.length) {
-        console.warn('Some files were not valid File objects');
-        console.warn('Invalid files:', acceptedFiles.filter(f => !(f instanceof File)));
-      }
       
       setFiles(prev => {
         const newFiles = [...prev, ...validFiles];
-        console.log('Updated files state from dropzone:', newFiles);
-        console.log('Updated files state length from dropzone:', newFiles.length);
         return newFiles;
       });
     },
@@ -116,43 +84,6 @@ const DocumentCreate: React.FC = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const fileList = Array.from(e.target.files);
-      console.log('=== File Input Change Debug ===');
-      console.log('FileList length:', e.target.files.length);
-      console.log('FileList files:', fileList);
-      
-      // Ensure these are proper File objects
-      const validFiles = fileList.filter(file => {
-        console.log('Checking input file:', file);
-        console.log('Input file type:', typeof file);
-        console.log('Input file constructor:', file.constructor.name);
-        console.log('Input file is File instance:', file instanceof File);
-        console.log('Input file size:', file.size);
-        
-        const isValid = file instanceof File && file.size > 0;
-        if (!isValid) {
-          console.warn('Invalid input file found:', file);
-        }
-        return isValid;
-      });
-      
-      console.log('Valid input files:', validFiles);
-      console.log('Valid input files length:', validFiles.length);
-      
-      setFiles(prev => {
-        const newFiles = [...prev, ...validFiles];
-        console.log('Updated files state:', newFiles);
-        console.log('Updated files state length:', newFiles.length);
-        return newFiles;
-      });
-      
-      // Clear the input
-      e.target.value = '';
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -313,31 +244,16 @@ const DocumentCreate: React.FC = () => {
         </button>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Create New Agreement</h1>
         <p className="mt-2 text-sm sm:text-base text-gray-600">
-          Create an agreement with another user by uploading your documents and specifying their user ID. 
-          The system will automatically calculate payment terms based on the agreement duration.
+          Create an agreement with another user by uploading your documents and specifying their user ID.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
-        {/* Requirements Summary */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-blue-900 mb-2">Required Fields:</h3>
-          <ul className="text-sm text-blue-800 space-y-1">
-            <li>• <strong>Document Name</strong> - Name of your agreement</li>
-            <li>• <strong>Upload Documents</strong> - At least one document file</li>
-            <li>• <strong>Target User ID</strong> - 8-character ID of the person you're making the agreement with</li>
-          </ul>
-          <p className="text-xs text-blue-600 mt-2">
-            Optional: Location, start date, end date (will be calculated automatically)
-          </p>
-        </div>
-
         {/* Document Details */}
-        <div className="grid grid-cols-1 sm:col-span-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              Document Name 
-              <span className="text-red-500 ml-1">*</span>
+              Document Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -398,41 +314,29 @@ const DocumentCreate: React.FC = () => {
         {/* File Upload Section */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Upload Documents 
-            <span className="text-red-500 ml-1">*</span>
+            Upload Documents <span className="text-red-500">*</span>
           </label>
-
-          {/* Simple file input as primary method */}
-          <div className="mb-6">
-            <input
-              type="file"
-              multiple
-              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-              onChange={handleFileInputChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
-            />
-          </div>
 
           {/* Drag and drop area */}
           <div
             {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-4 sm:p-8 text-center cursor-pointer transition-colors ${
+            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
               isDragActive
                 ? 'border-primary-400 bg-primary-50'
                 : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'
             }`}
           >
             <input {...getInputProps()} />
-            <Upload className="mx-auto h-8 w-8 sm:h-12 sm:w-12 text-gray-400" />
+            <Upload className="mx-auto h-12 w-12 text-gray-400" />
             <div className="mt-4">
-              <p className="text-base sm:text-lg font-medium text-gray-900">
-                {isDragActive ? 'Drop files here' : 'Or drag & drop files here'}
+              <p className="text-lg font-medium text-gray-900">
+                {isDragActive ? 'Drop files here' : 'Drag & drop files here'}
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                Alternative upload method
+                Or click to browse files
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                Supported formats: PDF, DOC, DOCX, PNG, JPG, JPEG
+                Supported: PDF, DOC, DOCX, PNG, JPG, JPEG
               </p>
             </div>
           </div>
@@ -441,7 +345,7 @@ const DocumentCreate: React.FC = () => {
           {files.length > 0 && (
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-900 mb-3">
-                Uploaded Files ({files.length}):
+                Uploaded Files ({files.length})
               </h3>
               
               <div className="space-y-2">
@@ -476,59 +380,29 @@ const DocumentCreate: React.FC = () => {
 
         {/* Agreement with User Section */}
         <div className="col-span-1 sm:col-span-2 border-t pt-6 mt-6">
-          <h3 className="text-md font-medium text-gray-900 mb-4">
-            Start Agreement with Another User 
-            <span className="text-red-500 ml-1">*</span>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">
+            Start Agreement with Another User
           </h3>
           
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="target_user_char_id" className="block text-medium text-gray-700">
-                8-Character User ID 
-                <span className="text-red-500 ml-1">*</span>
-              </label>
-              <input
-                type="text"
-                id="target_user_char_id"
-                name="target_user_char_id"
-                value={formData.target_user_char_id}
-                onChange={handleChange}
-                className="input-field"
-                placeholder="e.g., nGyOrdDx"
-                maxLength={8}
-                required
-              />
-              {!formData.target_user_char_id && (
-                <p className="text-sm text-red-600 mt-1">
-                  User ID is required to create an agreement
-                </p>
-              )}
-            </div>
-
-            <div className="col-span-1 sm:col-span-2">
-              <p className="text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
-                <strong>Required:</strong> You must specify another user to create an agreement. 
-                Daily rate is automatically set to <span className="font-semibold">1 coin per day</span>. 
-                Total days and amount will be calculated automatically based on your start and end dates.
-                <br />
-                <span className="text-xs text-gray-500 mt-1">
-                  Example: 7-day agreement = 7 coins, 30-day agreement = 30 coins
-                </span>
-              </p>
-            </div>
+          <div>
+            <label htmlFor="target_user_char_id" className="block text-sm font-medium text-gray-700">
+              8-Character User ID <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="target_user_char_id"
+              name="target_user_char_id"
+              value={formData.target_user_char_id}
+              onChange={handleChange}
+              className="input-field"
+              placeholder="e.g., nGyOrdDx"
+              maxLength={8}
+              required
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              Enter the 8-character user ID of the person you want to create an agreement with
+            </p>
           </div>
-
-          {formData.target_user_char_id && (
-            <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-sm text-green-800">
-                <strong>✓ Agreement Ready:</strong> You will create an agreement with user <span className="font-mono font-semibold">{formData.target_user_char_id}</span>
-                <br />
-                <span className="text-xs text-green-600 mt-1">
-                  Daily rate: 1 coin per day. Total amount will be calculated automatically.
-                </span>
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Submit Button */}
@@ -536,14 +410,14 @@ const DocumentCreate: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading || files.length === 0 || !formData.name.trim() || !formData.target_user_char_id.trim()}
-            className="btn-primary inline-flex items-center disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+            className="btn-primary inline-flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
             ) : (
               <CheckCircle className="h-5 w-5 mr-2" />
             )}
-            {isLoading ? 'Creating...' : 'Create Document & Agreement'}
+            {isLoading ? 'Creating...' : 'Create Agreement'}
           </button>
         </div>
       </form>
