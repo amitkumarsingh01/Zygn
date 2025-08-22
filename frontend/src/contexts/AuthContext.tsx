@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 
 interface AuthContextType extends AuthState {
   login: (phoneNo: string, otp: string) => Promise<void>;
-  register: (userData: any) => Promise<any>;
+  register: (userData: FormData | any) => Promise<any>;
   logout: () => void;
   updateUser: (userData: FormData) => Promise<void>;
   updateUserData: (userData: User) => void;

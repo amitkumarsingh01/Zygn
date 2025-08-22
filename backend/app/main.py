@@ -26,6 +26,7 @@ async def lifespan(app: FastAPI):
     os.makedirs(f"{settings.upload_dir}/eye_scans", exist_ok=True)
     os.makedirs(f"{settings.upload_dir}/fingerprints", exist_ok=True)
     os.makedirs(f"{settings.upload_dir}/documents", exist_ok=True)
+    os.makedirs(f"{settings.upload_dir}/govt_id_images", exist_ok=True)
     
     yield
     

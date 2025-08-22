@@ -22,6 +22,7 @@ class UserRegistration(BaseModel):
     state: str = Field(..., min_length=2, max_length=50)
     govt_id_type: str = Field(..., description="Type of government ID (Aadhar, PAN, Passport, etc.)")
     govt_id_number: str = Field(..., min_length=5, max_length=20, description="Government ID number")
+    govt_id_image: Optional[str] = Field(None, description="Government ID image filename")
 
 class UserLogin(BaseModel):
     phone_no: str
@@ -38,6 +39,7 @@ class UserInDB(BaseModel):
     char_id: str = Field(default_factory=generate_char_id)
     govt_id_type: str
     govt_id_number: str
+    govt_id_image: Optional[str] = None
     created_at: datetime = Field(default_factory=get_current_datetime)
     updated_at: datetime = Field(default_factory=get_current_datetime)
     is_active: bool = True

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Mail, Phone, MapPin, ArrowRight, CreditCard } from 'lucide-react';
+import { User, Mail, Phone, MapPin, ArrowRight, CreditCard, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Register: React.FC = () => {
@@ -14,6 +14,7 @@ const Register: React.FC = () => {
     govt_id_type: '',
     govt_id_number: ''
   });
+  const [govtIdImage, setGovtIdImage] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -35,18 +36,45 @@ const Register: React.FC = () => {
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+      // Validate file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('Image size should be less than 10MB');
+        return;
+      }
+      setGovtIdImage(file);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!govtIdImage) {
+      toast.error('Please upload your government ID image');
+      return;
+    }
+    
     setIsLoading(true);
     try {
-      // Create a copy of formData with the full phone number including country code
-      const registrationData = {
-        ...formData,
-        phone_no: `+91${formData.phone_no}`
-      };
+      // Create FormData for file upload
+      const formDataToSend = new FormData();
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('phone_no', `+91${formData.phone_no}`);
+      formDataToSend.append('city', formData.city);
+      formDataToSend.append('state', formData.state);
+      formDataToSend.append('govt_id_type', formData.govt_id_type);
+      formDataToSend.append('govt_id_number', formData.govt_id_number);
+      formDataToSend.append('govt_id_image', govtIdImage);
       
-      const response = await register(registrationData);
+      const response = await register(formDataToSend);
       if (response.redirect_to_login) {
         toast.success('Registration successful! Please login with OTP.');
         navigate('/login');
@@ -247,25 +275,52 @@ const Register: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Row 4: Government ID Number (Full Width) */}
-                <div>
-                  <label htmlFor="govt_id_number" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Government ID Number
-                  </label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <CreditCard className="h-5 w-5 text-gray-400 group-focus-within:text-primary-500 transition-colors" />
+                {/* Row 4: Government ID Number and Government ID Image Upload */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="govt_id_number" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Government ID Number
+                    </label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <CreditCard className="h-5 w-5 text-gray-400 group-focus-within:text-primary-500 transition-colors" />
+                      </div>
+                      <input
+                        id="govt_id_number"
+                        name="govt_id_number"
+                        type="text"
+                        required
+                        value={formData.govt_id_number}
+                        onChange={handleChange}
+                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                        placeholder="Enter your ID number"
+                      />
                     </div>
-                    <input
-                      id="govt_id_number"
-                      name="govt_id_number"
-                      type="text"
-                      required
-                      value={formData.govt_id_number}
-                      onChange={handleChange}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
-                      placeholder="Enter your ID number"
-                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="govt_id_image" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Government ID Image
+                    </label>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Upload className="h-5 w-5 text-gray-400 group-focus-within:text-primary-500 transition-colors" />
+                      </div>
+                      <input
+                        id="govt_id_image"
+                        name="govt_id_image"
+                        type="file"
+                        accept="image/*"
+                        required
+                        onChange={handleImageChange}
+                        className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white cursor-pointer"
+                      />
+                    </div>
+                    {govtIdImage && (
+                      <p className="mt-2 text-xs text-gray-500">
+                        Selected file: {govtIdImage.name}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

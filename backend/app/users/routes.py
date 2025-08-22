@@ -8,7 +8,7 @@ from app.users.models import UserProfile, UserProfileResponse, UserListResponse
 from app.auth.utils import verify_token
 from app.database import get_database
 from app.config import settings
-from app.utils.file_handler import save_uploaded_file
+from app.utils.file_handler import save_uploaded_file, delete_file
 from bson import ObjectId
 
 users_router = APIRouter()
@@ -36,6 +36,7 @@ async def get_user_profile(current_user=Depends(get_current_user)):
     print(f"  state: {current_user.get('state')}")
     print(f"  govt_id_type: {current_user.get('govt_id_type')}")
     print(f"  govt_id_number: {current_user.get('govt_id_number')}")
+    print(f"  govt_id_image: {current_user.get('govt_id_image')}")
     
     # Ensure all required fields are present
     user_data = {
@@ -52,6 +53,7 @@ async def get_user_profile(current_user=Depends(get_current_user)):
         "state": current_user["state"],
         "govt_id_type": current_user.get("govt_id_type"),
         "govt_id_number": current_user.get("govt_id_number"),
+        "govt_id_image": current_user.get("govt_id_image"),
         "status": current_user.get("status", "active"),
         "is_active": current_user.get("is_active", True),
         "created_at": current_user["created_at"],
@@ -76,6 +78,7 @@ async def update_user_profile(
     signature_pic: UploadFile = File(None),
     eye_pic: UploadFile = File(None),
     fingerprint: UploadFile = File(None),
+    govt_id_image: UploadFile = File(None),
     current_user=Depends(get_current_user),
     db=Depends(get_database)
 ):
@@ -128,6 +131,18 @@ async def update_user_profile(
     if fingerprint:
         filename = await save_uploaded_file(fingerprint, "fingerprints")
         update_data["fingerprint"] = f"/uploads/fingerprints/{filename}"
+    
+    if govt_id_image:
+        # Delete old govt_id_image if it exists
+        if current_user.get("govt_id_image"):
+            try:
+                old_file_path = os.path.join(settings.upload_dir, "govt_id_images", current_user["govt_id_image"])
+                await delete_file(old_file_path)
+            except Exception as e:
+                print(f"Warning: Failed to delete old govt_id_image: {e}")
+        
+        filename = await save_uploaded_file(govt_id_image, "govt_id_images")
+        update_data["govt_id_image"] = filename
     
     print(f"=== Database Update ===")
     print(f"Update query: {{'user_id': '{current_user['user_id']}'}}")
@@ -463,6 +478,7 @@ async def get_user_by_id(user_id: str, current_user=Depends(get_current_user), d
         "state": user["state"],
         "govt_id_type": user.get("govt_id_type"),
         "govt_id_number": user.get("govt_id_number"),
+        "govt_id_image": user.get("govt_id_image"),
         "status": user.get("status", "active"),
         "is_active": user.get("is_active", True),
         "created_at": user["created_at"],

@@ -15,6 +15,7 @@ class UserProfile(BaseModel):
     mpin: Optional[str] = Field(None, min_length=4, max_length=6)
     govt_id_type: Optional[str] = None
     govt_id_number: Optional[str] = None
+    govt_id_image: Optional[str] = None
     char_id: str
     status: str = "active"
     is_active: bool = True
@@ -35,6 +36,7 @@ class UserProfileResponse(BaseModel):
     state: str
     govt_id_type: Optional[str] = None
     govt_id_number: Optional[str] = None
+    govt_id_image: Optional[str] = None
     status: str
     is_active: bool
     created_at: datetime

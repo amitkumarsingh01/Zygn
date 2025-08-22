@@ -13,6 +13,7 @@ export interface User {
   fingerprint?: string;
   govt_id_type?: string;
   govt_id_number?: string;
+  govt_id_image?: string;
   status: string;
   is_active: boolean;
   is_admin: boolean;
@@ -144,6 +145,7 @@ export interface RegisterData {
   state: string;
   govt_id_type: string;
   govt_id_number: string;
+  govt_id_image?: File;
 }
 
 export interface ChatMessage {

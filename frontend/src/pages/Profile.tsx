@@ -31,6 +31,7 @@ const Profile: React.FC = () => {
     signature_pic?: File;
     eye_pic?: File;
     fingerprint?: File;
+    govt_id_image?: File;
   }>({});
 
   useEffect(() => {
@@ -193,6 +194,13 @@ const Profile: React.FC = () => {
     if (imagePath && imagePath.startsWith('/uploads/')) {
       const fullUrl = `https://zygn.iaks.site${imagePath}`;
       console.log(`getFilePreview: Constructed full URL for ${field}:`, fullUrl);
+      return fullUrl;
+    }
+    
+    // Special handling for govt_id_image which stores just the filename
+    if (field === 'govt_id_image' && imagePath) {
+      const fullUrl = `https://zygn.iaks.site/uploads/govt_id_images/${imagePath}`;
+      console.log(`getFilePreview: Constructed full URL for govt_id_image:`, fullUrl);
       return fullUrl;
     }
     
@@ -362,6 +370,55 @@ const Profile: React.FC = () => {
                 disabled={!isEditing}
                 className="input-field mt-1 disabled:bg-gray-50 disabled:text-gray-500"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Government ID Image
+              </label>
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  {user?.govt_id_image ? (
+                    <img
+                      src={getFilePreview('govt_id_image')}
+                      alt="Government ID"
+                      className="h-20 w-20 rounded-lg object-cover border-2 border-gray-200"
+                    />
+                  ) : (
+                    <div className="h-20 w-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                      <Upload className="h-8 w-8 text-gray-400" />
+                    </div>
+                  )}
+                  {isEditing && (
+                    <label className="absolute bottom-0 right-0 bg-primary-600 text-white rounded-full p-1 cursor-pointer hover:bg-primary-700">
+                      <Camera className="h-4 w-4" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => e.target.files?.[0] && handleFileChange('govt_id_image', e.target.files[0])}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+                <div className="flex-1">
+                  {uploadedFiles.govt_id_image && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-600">{uploadedFiles.govt_id_image.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile('govt_id_image')}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                  {isEditing && (
+                    <p className="text-xs text-gray-500">Click the camera icon to upload</p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
