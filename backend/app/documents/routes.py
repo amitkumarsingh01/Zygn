@@ -30,21 +30,36 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
     return user
 
-@documents_router.post("/create", response_model=dict)
+@documents_router.post("/create", response_model=dict, 
+                       summary="Create Document with Verification",
+                       description="Create a new document with required verification documents",
+                       tags=["Documents"],
+                       operation_id="create_document_with_verification")
 async def create_document(
-    name: str = Form(...),
-    location: Optional[str] = Form(None),
-    start_date: Optional[str] = Form(None),
-    end_date: Optional[str] = Form(None),
-    raw_documents: List[UploadFile] = File(...),
+    name: str = Form(..., description="Document name", example="Rental Agreement"),
+    location: Optional[str] = Form(None, description="Document location", example="Mumbai, Maharashtra"),
+    start_date: Optional[str] = Form(None, description="Start date (ISO format)", example="2024-01-01T00:00:00Z"),
+    end_date: Optional[str] = Form(None, description="End date (ISO format)", example="2024-12-31T23:59:59Z"),
+    raw_documents: List[UploadFile] = File(..., description="Main document files (PDF, images, etc.)"),
     # Verification documents - collected fresh for each document operation
-    profile_pic: Optional[UploadFile] = File(None),
-    thumb: Optional[UploadFile] = File(None),  # Made optional
-    sign: Optional[UploadFile] = File(None),
-    eye: Optional[UploadFile] = File(None),
+    profile_pic: Optional[UploadFile] = File(None, description="Profile picture/selfie for verification"),
+    thumb: Optional[UploadFile] = File(None, description="Fingerprint scan (optional)"),
+    sign: Optional[UploadFile] = File(None, description="Signature image for verification"),
+    eye: Optional[UploadFile] = File(None, description="Eye scan for verification"),
     current_user=Depends(get_current_user),
     db=Depends(get_database)
 ):
+    """
+    Create a new document with verification.
+    
+    This endpoint creates a new document and requires verification documents:
+    - profile_pic: Required - Profile picture/selfie
+    - sign: Required - Signature image  
+    - eye: Required - Eye scan image
+    - thumb: Optional - Fingerprint scan
+    
+    All verification documents are collected fresh for each document operation.
+    """
     print(f"=== Document Creation Request ===")
     print(f"Current User: {current_user['user_id']}")
     
@@ -279,17 +294,33 @@ async def create_document(
             detail=f"Error creating document: {str(e)}"
         )
 
-@documents_router.post("/join")
+@documents_router.post("/join",
+                       summary="Join Document with Verification",
+                       description="Join an existing document using document code with required verification",
+                       tags=["Documents"],
+                       operation_id="join_document_with_verification")
 async def join_document(
-    document_code: str = Form(...),
+    document_code: str = Form(..., description="Document code to join", example="nGyOrdDx"),
     # Verification documents - collected fresh for each document operation
-    profile_pic: Optional[UploadFile] = File(None),
-    thumb: Optional[UploadFile] = File(None),
-    sign: Optional[UploadFile] = File(None),
-    eye: Optional[UploadFile] = File(None),
+    profile_pic: Optional[UploadFile] = File(None, description="Profile picture/selfie for verification"),
+    thumb: Optional[UploadFile] = File(None, description="Fingerprint scan (optional)"),
+    sign: Optional[UploadFile] = File(None, description="Signature image for verification"),
+    eye: Optional[UploadFile] = File(None, description="Eye scan for verification"),
     current_user=Depends(get_current_user),
     db=Depends(get_database)
 ):
+    """
+    Join an existing document with verification.
+    
+    This endpoint allows users to join an existing document using a document code.
+    Verification documents are required:
+    - profile_pic: Required - Profile picture/selfie
+    - sign: Required - Signature image  
+    - eye: Required - Eye scan image
+    - thumb: Optional - Fingerprint scan
+    
+    All verification documents are collected fresh for each document operation.
+    """
     print(f"=== Document Join Request ===")
     print(f"Document Code: {document_code}")
     print(f"Current User: {current_user['user_id']}")

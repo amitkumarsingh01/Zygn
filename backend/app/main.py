@@ -1,8 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.openapi.utils import get_openapi
 from contextlib import asynccontextmanager
 import os
+from typing import Optional
+from fastapi import File, UploadFile
 
 from app.database import connect_to_mongo, close_mongo_connection
 from app.config import settings
@@ -37,7 +40,29 @@ app = FastAPI(
     title="Document Agreement System",
     description="Multi-user document agreement system with blockchain and AI verification",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    openapi_tags=[
+        {
+            "name": "Documents",
+            "description": "Document creation, management, and verification operations"
+        },
+        {
+            "name": "Authentication",
+            "description": "User registration and login operations"
+        },
+        {
+            "name": "Users",
+            "description": "User profile and management operations"
+        },
+        {
+            "name": "Payments",
+            "description": "Payment processing and management"
+        },
+        {
+            "name": "Wallet",
+            "description": "Wallet balance and transaction operations"
+        }
+    ]
 )
 
 # CORS middleware
@@ -73,6 +98,39 @@ async def add_cors_headers(request, call_next):
     response.headers["Access-Control-Allow-Credentials"] = "true"
     return response
 
+# Custom OpenAPI schema for better file upload recognition
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    
+    # Ensure file upload fields are properly recognized
+    if "paths" in openapi_schema:
+        for path in openapi_schema["paths"].values():
+            for method in path.values():
+                if "requestBody" in method and "content" in method["requestBody"]:
+                    if "multipart/form-data" in method["requestBody"]["content"]:
+                        schema = method["requestBody"]["content"]["multipart/form-data"]["schema"]
+                        if "properties" in schema:
+                            for prop_name, prop_value in schema["properties"].items():
+                                if prop_name in ["profile_pic", "thumb", "sign", "eye", "raw_documents"]:
+                                    prop_value["type"] = "string"
+                                    prop_value["format"] = "binary"
+                                    if prop_name == "raw_documents":
+                                        prop_value["type"] = "array"
+                                        prop_value["items"] = {"type": "string", "format": "binary"}
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
 # Note: We avoid custom multipart middleware to keep compatibility across Starlette versions.
 
 # Static files
@@ -105,6 +163,27 @@ async def test_cors():
             "https://zygn-git-main-aksml.vercel.app",
             "https://zygn-aksml.vercel.app"
         ]
+    }
+
+@app.post("/test-file-upload")
+async def test_file_upload(
+    profile_pic: Optional[UploadFile] = File(None, description="Test profile picture upload"),
+    sign: Optional[UploadFile] = File(None, description="Test signature upload"),
+    eye: Optional[UploadFile] = File(None, description="Test eye scan upload"),
+    thumb: Optional[UploadFile] = File(None, description="Test fingerprint upload")
+):
+    """
+    Test endpoint to verify file upload functionality.
+    This endpoint accepts the same verification files as document creation.
+    """
+    return {
+        "message": "File upload test successful",
+        "files_received": {
+            "profile_pic": profile_pic.filename if profile_pic else None,
+            "sign": sign.filename if sign else None,
+            "eye": eye.filename if eye else None,
+            "thumb": thumb.filename if thumb else None
+        }
     }
 
 if __name__ == "__main__":
