@@ -29,11 +29,22 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
   const [errors, setErrors] = useState<string[]>([]);
   const [activeCamera, setActiveCamera] = useState<'profile' | 'eye' | null>(null);
   const [showSignatureBoard, setShowSignatureBoard] = useState(false);
+  const [cameraLoading, setCameraLoading] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [showCameraPrompt, setShowCameraPrompt] = useState(false);
+  const [pendingCameraType, setPendingCameraType] = useState<'profile' | 'eye' | null>(null);
   
   // Camera refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  const openCameraPrompt = (type: 'profile' | 'eye') => {
+    setPendingCameraType(type);
+    setShowCameraPrompt(true);
+  };
   
   // Signature board refs
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,11 +56,16 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
       stopCamera();
       setActiveCamera(null);
       setShowSignatureBoard(false);
+      setCapturedImage(null);
+      setIsPreviewMode(false);
     }
   }, [isOpen]);
 
   const startCamera = async (type: 'profile' | 'eye') => {
     try {
+      setCameraLoading(true);
+      setCameraError(null);
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: type === 'profile' ? 'user' : 'user',
@@ -62,10 +78,27 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setActiveCamera(type);
+        setCameraLoading(false);
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
-      alert('Unable to access camera. Please check permissions.');
+      setCameraLoading(false);
+      setCameraError('Unable to access camera. Please check permissions and try again.');
+      
+      // Show user-friendly error message
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          setCameraError('Camera access denied. Please allow camera permissions and try again.');
+        } else if (error.name === 'NotFoundError') {
+          setCameraError('No camera found on your device. Please connect a camera and try again.');
+        } else if (error.name === 'NotReadableError') {
+          setCameraError('Camera is already in use by another application. Please close other camera apps and try again.');
+        } else {
+          setCameraError('Camera error: ' + error.message);
+        }
+      } else {
+        setCameraError('Unable to access camera. Please check permissions and try again.');
+      }
     }
   };
 
@@ -93,12 +126,19 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
         
         canvas.toBlob((blob) => {
           if (blob) {
-            const file = new File([blob], `${activeCamera}_capture.jpg`, { type: 'image/jpeg' });
-            setVerificationData(prev => ({
-              ...prev,
-              [activeCamera === 'profile' ? 'profile_pic' : 'eye']: file
-            }));
-            stopCamera();
+            // Create preview URL
+            const imageUrl = URL.createObjectURL(blob);
+            setCapturedImage(imageUrl);
+            setIsPreviewMode(true);
+            
+            // Stop camera stream but keep modal open for preview
+            if (streamRef.current) {
+              streamRef.current.getTracks().forEach(track => track.stop());
+              streamRef.current = null;
+            }
+            if (videoRef.current) {
+              videoRef.current.srcObject = null;
+            }
           }
         }, 'image/jpeg', 0.8);
       }
@@ -176,6 +216,32 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
           closeSignatureBoard();
         }
       }, 'image/png');
+    }
+  };
+
+  const retakePhoto = () => {
+    setCapturedImage(null);
+    setIsPreviewMode(false);
+    startCamera(activeCamera!);
+  };
+
+  const submitPhoto = () => {
+    if (capturedImage && activeCamera) {
+      // Convert the captured image URL back to a File object
+      fetch(capturedImage)
+        .then(res => res.blob())
+        .then(blob => {
+          const file = new File([blob], `${activeCamera}_capture.jpg`, { type: 'image/jpeg' });
+          setVerificationData(prev => ({
+            ...prev,
+            [activeCamera === 'profile' ? 'profile_pic' : 'eye']: file
+          }));
+          
+          // Clean up and close camera
+          setCapturedImage(null);
+          setIsPreviewMode(false);
+          stopCamera();
+        });
     }
   };
 
@@ -286,63 +352,183 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
 
           {/* Camera View */}
           {activeCamera && (
-            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-60">
+            <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4">
               <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium">
+                  <h3 className="text-lg font-medium text-gray-900">
                     Capture {activeCamera === 'profile' ? 'Profile Picture' : 'Eye Scan'}
                   </h3>
                   <button
                     onClick={stopCamera}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100"
                   >
                     <XIcon className="h-6 w-6" />
                   </button>
                 </div>
                 
-                <div className="relative">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    className="w-full rounded-lg"
-                  />
-                  <canvas ref={canvasRef} className="hidden" />
-                  
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
-                    <button
-                      onClick={capturePhoto}
-                      className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-                    >
-                      <Camera className="h-5 w-5" />
-                      <span>Capture</span>
-                    </button>
+                {/* Camera Loading State */}
+                {cameraLoading && (
+                  <div className="flex items-center justify-center py-16">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <p className="text-gray-600">Starting camera...</p>
+                    </div>
                   </div>
-                </div>
+                )}
+                
+                {/* Camera Error State */}
+                {cameraError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                    <div className="text-red-600 mb-4">
+                      <AlertCircle className="h-12 w-12 mx-auto" />
+                    </div>
+                    <h4 className="text-lg font-medium text-red-800 mb-2">Camera Error</h4>
+                    <p className="text-red-700 mb-4">{cameraError}</p>
+                    <div className="flex space-x-3 justify-center">
+                      <button
+                        onClick={() => {
+                          setCameraError(null);
+                          startCamera(activeCamera);
+                        }}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                      >
+                        Try Again
+                      </button>
+                      <button
+                        onClick={stopCamera}
+                        className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Compact Camera Frame */}
+                {!cameraLoading && !cameraError && !isPreviewMode && (
+                  <div className="space-y-4">
+                    {/* Camera Preview Frame */}
+                    <div className="relative mx-auto w-80 h-80 bg-black rounded-lg overflow-hidden border-4 border-gray-300 shadow-lg">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                      <canvas ref={canvasRef} className="hidden" />
+                      
+                      {/* Camera Instructions Overlay */}
+                      <div className="absolute top-2 left-2 right-2 bg-black/70 text-white px-3 py-2 rounded-lg text-sm text-center">
+                        <p>Position yourself in the frame</p>
+                      </div>
+                      
+                      {/* Capture Frame Guide */}
+                      <div className="absolute inset-4 border-2 border-white border-dashed rounded-lg pointer-events-none">
+                        <div className="absolute top-2 left-2 bg-white/80 text-black px-2 py-1 rounded text-xs font-medium">
+                          {activeCamera === 'profile' ? 'FACE' : 'EYE'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Camera Controls */}
+                    <div className="flex items-center justify-center space-x-4">
+                      <button
+                        onClick={stopCamera}
+                        className="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 flex items-center space-x-2 transition-colors"
+                      >
+                        <XIcon className="h-4 w-4" />
+                        <span>Cancel</span>
+                      </button>
+                      
+                      <button
+                        onClick={capturePhoto}
+                        className="bg-blue-600 text-white px-8 py-3 rounded-full hover:bg-blue-700 flex items-center space-x-2 shadow-lg transition-all transform hover:scale-105"
+                      >
+                        <Camera className="h-6 w-6" />
+                        <span className="font-medium">Capture</span>
+                      </button>
+                    </div>
+                    
+                    {/* Helpful Tips */}
+                    <div className="text-center text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                      <p className="font-medium mb-1">Tips for better {activeCamera === 'profile' ? 'profile picture' : 'eye scan'}:</p>
+                      <ul className="text-xs space-y-1">
+                        <li>• Ensure good lighting</li>
+                        <li>• Keep your face steady</li>
+                        {activeCamera === 'eye' && <li>• Focus on one eye</li>}
+                        <li>• Stay within the frame</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {/* Photo Preview Mode */}
+                {!cameraLoading && !cameraError && isPreviewMode && capturedImage && (
+                  <div className="space-y-4">
+                    {/* Captured Image Preview */}
+                    <div className="relative mx-auto w-80 h-80 bg-gray-100 rounded-lg overflow-hidden border-4 border-gray-300 shadow-lg">
+                      <img
+                        src={capturedImage}
+                        alt="Captured photo"
+                        className="w-full h-full object-cover"
+                      />
+                      
+                      {/* Preview Label */}
+                      <div className="absolute top-2 left-2 bg-blue-600 text-white px-3 py-1 rounded-lg text-sm font-medium">
+                        PREVIEW
+                      </div>
+                    </div>
+                    
+                    {/* Preview Controls */}
+                    <div className="flex items-center justify-center space-x-4">
+                      <button
+                        onClick={retakePhoto}
+                        className="bg-orange-500 text-white px-6 py-3 rounded-lg hover:bg-orange-600 flex items-center space-x-2 transition-colors"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        <span>Retake</span>
+                      </button>
+                      
+                      <button
+                        onClick={submitPhoto}
+                        className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 flex items-center space-x-2 shadow-lg transition-all transform hover:scale-105"
+                      >
+                        <Check className="h-4 w-4" />
+                        <span className="font-medium">Submit Photo</span>
+                      </button>
+                    </div>
+                    
+                    {/* Preview Info */}
+                    <div className="text-center text-sm text-gray-600 bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="font-medium text-green-800 mb-1">Photo Captured Successfully!</p>
+                      <p className="text-green-700">Review your {activeCamera === 'profile' ? 'profile picture' : 'eye scan'} above</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {/* Signature Board */}
           {showSignatureBoard && (
-            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-60">
-              <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
+            <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4">
+              <div className="bg-white rounded-lg p-6 max-w-3xl w-full">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium">Draw Your Signature</h3>
+                  <h3 className="text-lg font-medium text-gray-900">Draw Your Signature</h3>
                   <button
                     onClick={closeSignatureBoard}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100"
                   >
                     <XIcon className="h-6 w-6" />
                   </button>
                 </div>
                 
-                <div className="border-2 border-gray-300 rounded-lg overflow-hidden">
+                <div className="border-2 border-gray-300 rounded-lg overflow-hidden bg-white">
                   <canvas
                     ref={signatureCanvasRef}
                     width={600}
                     height={300}
-                    className="w-full h-75 border-0 cursor-crosshair"
+                    className="w-full h-75 border-0 cursor-crosshair block"
                     onMouseDown={startDrawing}
                     onMouseMove={draw}
                     onMouseUp={stopDrawing}
@@ -373,21 +559,26 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
                   />
                 </div>
                 
-                <div className="flex justify-between mt-4">
+                {/* Signature Instructions */}
+                <div className="mt-3 text-center text-sm text-gray-600">
+                  <p>Use your mouse or finger to draw your signature above</p>
+                </div>
+                
+                <div className="flex justify-between mt-6">
                   <button
                     onClick={clearSignature}
-                    className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 flex items-center space-x-2"
+                    className="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 flex items-center space-x-2 transition-colors"
                   >
                     <RotateCcw className="h-4 w-4" />
-                    <span>Clear</span>
+                    <span>Clear Signature</span>
                   </button>
                   
                   <button
                     onClick={saveSignature}
-                    className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2"
+                    className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 flex items-center space-x-2 transition-colors shadow-lg"
                   >
                     <Check className="h-4 w-4" />
-                    <span>Save Signature</span>
+                    <span className="font-medium">Save Signature</span>
                   </button>
                 </div>
               </div>
@@ -443,7 +634,7 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
                     <div className="space-y-3">
                       {field === 'profile_pic' ? (
                         <button
-                          onClick={() => startCamera('profile')}
+                          onClick={() => openCameraPrompt('profile')}
                           className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 hover:bg-blue-50 transition-colors"
                         >
                           <Camera className="h-12 w-12 text-gray-400 mx-auto mb-3" />
@@ -458,7 +649,7 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
                         </button>
                       ) : field === 'eye' ? (
                         <button
-                          onClick={() => startCamera('eye')}
+                          onClick={() => openCameraPrompt('eye')}
                           className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 hover:bg-blue-50 transition-colors"
                         >
                           <Eye className="h-12 w-12 text-gray-400 mx-auto mb-3" />
@@ -494,6 +685,35 @@ const DocumentVerificationModal: React.FC<DocumentVerificationModalProps> = ({
             ))}
           </div>
         </div>
+
+        {/* Camera Permission Prompt */}
+        {showCameraPrompt && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10000] p-4">
+            <div className="bg-white rounded-lg w-full max-w-md shadow-xl">
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-gray-900">Open Camera?</h4>
+                <button onClick={() => setShowCameraPrompt(false)} className="text-gray-500 hover:text-gray-700">
+                  <XIcon className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="px-6 py-4 space-y-3">
+                <p className="text-sm text-gray-700">
+                  We need to access your device camera to capture your {pendingCameraType === 'profile' ? 'profile photo' : 'eye scan'}. You can revoke access anytime from your browser settings.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded px-3 py-2 text-xs text-blue-800">
+                  Tip: If prompted by the browser, click Allow to grant camera permission.
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end space-x-3">
+                <button onClick={() => setShowCameraPrompt(false)} className="px-4 py-2 rounded bg-gray-100 text-gray-700 hover:bg-gray-200">Cancel</button>
+                <button onClick={() => {
+                  setShowCameraPrompt(false);
+                  startCamera(pendingCameraType!);
+                }} className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Continue</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
