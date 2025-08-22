@@ -232,195 +232,234 @@ const DocumentCreate: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      {/* Header */}
-      <div className="mb-8">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Dashboard
-        </button>
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Create New Agreement</h1>
-        <p className="mt-2 text-sm sm:text-base text-gray-600">
-          Create an agreement with another user by uploading your documents and specifying their user ID.
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
-        {/* Document Details */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              Document Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="input-field"
-              placeholder="e.g., Rental Agreement, Service Contract"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-              Location (Optional)
-            </label>
-            <input
-              type="text"
-              id="location"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              className="input-field"
-              placeholder="e.g., Mumbai, Maharashtra"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="start_date" className="block text-sm font-medium text-gray-700">
-              Start Date (Optional)
-            </label>
-            <input
-              type="date"
-              id="start_date"
-              name="start_date"
-              value={formData.start_date}
-              onChange={handleChange}
-              className="input-field"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="end_date" className="block text-sm font-medium text-gray-700">
-              End Date (Optional)
-            </label>
-            <input
-              type="date"
-              id="end_date"
-              name="end_date"
-              value={formData.end_date}
-              onChange={handleChange}
-              className="input-field"
-            />
-          </div>
-        </div>
-
-        {/* File Upload Section */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Upload Documents <span className="text-red-500">*</span>
-          </label>
-
-          {/* Drag and drop area */}
-          <div
-            {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-              isDragActive
-                ? 'border-primary-400 bg-primary-50'
-                : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'
-            }`}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-10">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800 mb-6 transition-colors duration-200"
           >
-            <input {...getInputProps()} />
-            <Upload className="mx-auto h-12 w-12 text-gray-400" />
-            <div className="mt-4">
-              <p className="text-lg font-medium text-gray-900">
-                {isDragActive ? 'Drop files here' : 'Drag & drop files here'}
-              </p>
-              <p className="text-sm text-gray-500 mt-1">
-                Or click to browse files
-              </p>
-              <p className="text-xs text-gray-400 mt-2">
-                Supported: PDF, DOC, DOCX, PNG, JPG, JPEG
-              </p>
-            </div>
-          </div>
-
-          {/* File List */}
-          {files.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">
-                Uploaded Files ({files.length})
-              </h3>
-              
-              <div className="space-y-2">
-                {files.map((file, index) => (
-                  <div
-                    key={`${file.name}-${index}`}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex items-center min-w-0 flex-1">
-                      <FileText className="h-5 w-5 text-gray-400 mr-3 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {formatFileSize(file.size)} • {file.type || 'Unknown type'}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(index)}
-                      className="text-red-500 hover:text-red-700 ml-2 flex-shrink-0"
-                      title="Remove file"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Agreement with User Section */}
-        <div className="col-span-1 sm:col-span-2 border-t pt-6 mt-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
-            Start Agreement with Another User
-          </h3>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </button>
           
-          <div>
-            <label htmlFor="target_user_char_id" className="block text-sm font-medium text-gray-700">
-              8-Character User ID <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              id="target_user_char_id"
-              name="target_user_char_id"
-              value={formData.target_user_char_id}
-              onChange={handleChange}
-              className="input-field"
-              placeholder="e.g., nGyOrdDx"
-              maxLength={8}
-              required
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              Enter the 8-character user ID of the person you want to create an agreement with
+          <div className="text-center sm:text-left">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Create New Agreement
+            </h1>
+            <p className="text-lg text-gray-600 max-w-2xl">
+              Create an agreement with another user by uploading your documents and specifying their user ID.
             </p>
           </div>
         </div>
 
-        {/* Submit Button */}
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={isLoading || files.length === 0 || !formData.name.trim() || !formData.target_user_char_id.trim()}
-            className="btn-primary inline-flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-            ) : (
-              <CheckCircle className="h-5 w-5 mr-2" />
-            )}
-            {isLoading ? 'Creating...' : 'Create Agreement'}
-          </button>
+        {/* Main Form Card */}
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Document Details Section */}
+            <div className="space-y-6">
+              <div className="border-b border-gray-200 pb-4">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                  <FileText className="h-5 w-5 mr-2 text-primary-600" />
+                  Document Details
+                </h2>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label htmlFor="name" className="block text-sm font-semibold text-gray-700">
+                    Document Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200"
+                    placeholder="e.g., Rental Agreement, Service Contract"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="location" className="block text-sm font-semibold text-gray-700">
+                    Location <span className="text-gray-400 text-xs">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="location"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200"
+                    placeholder="e.g., Mumbai, Maharashtra"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="start_date" className="block text-sm font-semibold text-gray-700">
+                    Start Date <span className="text-gray-400 text-xs">(Optional)</span>
+                  </label>
+                  <input
+                    type="date"
+                    id="start_date"
+                    name="start_date"
+                    value={formData.start_date}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="end_date" className="block text-sm font-semibold text-gray-700">
+                    End Date <span className="text-gray-400 text-xs">(Optional)</span>
+                  </label>
+                  <input
+                    type="date"
+                    id="end_date"
+                    name="end_date"
+                    value={formData.end_date}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* File Upload Section */}
+            <div className="space-y-6">
+              <div className="border-b border-gray-200 pb-4">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                  <Upload className="h-5 w-5 mr-2 text-primary-600" />
+                  Upload Documents <span className="text-red-500">*</span>
+                </h2>
+              </div>
+
+              {/* Enhanced Drag and Drop Area */}
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${
+                  isDragActive
+                    ? 'border-primary-400 bg-primary-50 scale-105'
+                    : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50 hover:scale-[1.02]'
+                }`}
+              >
+                <input {...getInputProps()} />
+                <div className="space-y-4">
+                  <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-200 ${
+                    isDragActive ? 'bg-primary-100' : 'bg-gray-100'
+                  }`}>
+                    <Upload className={`h-8 w-8 transition-colors duration-200 ${
+                      isDragActive ? 'text-primary-600' : 'text-gray-400'
+                    }`} />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-xl font-semibold text-gray-900">
+                      {isDragActive ? 'Drop files here' : 'Drag & drop files here'}
+                    </p>
+                    <p className="text-gray-600">
+                      Or click to browse files
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Supported: PDF, DOC, DOCX, PNG, JPG, JPEG
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Enhanced File List */}
+              {files.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-primary-600" />
+                    Uploaded Files ({files.length})
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    {files.map((file, index) => (
+                      <div
+                        key={`${file.name}-${index}`}
+                        className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200 hover:border-primary-300 transition-all duration-200"
+                      >
+                        <div className="flex items-center min-w-0 flex-1">
+                          <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center mr-4 flex-shrink-0">
+                            <FileText className="h-5 w-5 text-primary-600" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{file.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {formatFileSize(file.size)} • {file.type || 'Unknown type'}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(index)}
+                          className="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-200 flex-shrink-0"
+                          title="Remove file"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Agreement Section */}
+            <div className="space-y-6">
+              <div className="border-b border-gray-200 pb-4">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                  <CheckCircle className="h-5 w-5 mr-2 text-primary-600" />
+                  Agreement Details
+                </h2>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="target_user_char_id" className="block text-sm font-semibold text-gray-700">
+                    8-Character User ID <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="target_user_char_id"
+                    name="target_user_char_id"
+                    value={formData.target_user_char_id}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 font-mono text-lg"
+                    placeholder="e.g., nGyOrdDx"
+                    maxLength={8}
+                    required
+                  />
+                  <p className="text-sm text-gray-600">
+                    Enter the 8-character user ID of the person you want to create an agreement with
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="flex justify-end pt-6 border-t border-gray-200">
+              <button
+                type="submit"
+                disabled={isLoading || files.length === 0 || !formData.name.trim() || !formData.target_user_char_id.trim()}
+                className="px-8 py-4 bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold rounded-xl hover:from-primary-700 hover:to-primary-800 focus:ring-4 focus:ring-primary-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105 disabled:transform-none inline-flex items-center"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                ) : (
+                  <CheckCircle className="h-5 w-5 mr-3" />
+                )}
+                {isLoading ? 'Creating Agreement...' : 'Create Agreement'}
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
 
       {/* Document Verification Modal */}
       <DocumentVerificationModal
