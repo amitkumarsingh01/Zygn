@@ -1,4 +1,4 @@
-package com.example.app
+package com.aksmlibts.zygn
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

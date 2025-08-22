@@ -21,8 +21,8 @@ class DocumentResponse(BaseModel):
     final_docs: Optional[List[str]] = []
     datetime: datetime
     location: Optional[str] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
     name: str = ""
     document_code: str = ""
     ai_forgery_check: bool = False
@@ -34,6 +34,8 @@ class DocumentResponse(BaseModel):
     total_days: Optional[int] = None
     total_amount: Optional[float] = None
     payment_status: Optional[str] = "pending"
+    # User approval tracking
+    user_approvals: Optional[dict] = Field(default_factory=dict, description="Track user approval status")
     # Verification documents collected fresh for each document operation
     verification_documents: Optional[dict] = Field(default_factory=dict, description="Fresh verification documents for this document")
     created_at: datetime
@@ -49,19 +51,21 @@ class DocumentInDB(BaseModel):
     final_docs: Optional[List[str]] = None
     datetime: datetime
     location: Optional[str] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
     name: str
     document_code: str = Field(default_factory=generate_document_code)
     ai_forgery_check: bool = False
     blockchain: bool = False
-    status: str = "draft"  # draft, pending, approved, finalized
+    status: str = "draft"  # draft, pending_approval, approved, payment_pending, payment_completed, finalized
     is_active: bool = True
     is_primary: bool = False
     daily_rate: float = 1.0  # Dynamic daily rate from pricing config
     total_days: int = 1
     total_amount: float = 1.0
     payment_status: str = "pending"
+    # User approval tracking - track who has approved
+    user_approvals: Optional[dict] = Field(default_factory=dict, description="Track user approval status: {user_id: {approved: bool, approved_at: datetime}}")
     # Verification documents collected fresh for each document operation
     verification_documents: Optional[dict] = Field(default_factory=dict, description="Fresh verification documents for this document")
     created_at: datetime

@@ -213,6 +213,16 @@ async def create_document(
     
     # Create document
     current_time = datetime.now(timezone.utc)
+    
+    # Initialize user approvals - primary user auto-approved
+    user_approvals = {
+        current_user["user_id"]: {
+            "approved": True,
+            "approved_at": current_time,
+            "is_primary": True
+        }
+    }
+    
     document = DocumentInDB(
         involved_users=[current_user["user_id"]],
         primary_user=current_user["user_id"],
@@ -225,13 +235,15 @@ async def create_document(
         end_date=parsed_end_date,
         ai_forgery_check=False,
         blockchain=False,
-        status="draft",
+        status="draft",  # Starts as draft
         is_active=True,
         is_primary=False,
         daily_rate=daily_rate,  # Dynamic daily rate from pricing config
         total_days=total_days,
         total_amount=total_amount,
         payment_status="pending",
+        # Initialize user approval tracking
+        user_approvals=user_approvals,
         # Store verification documents for this specific document operation
         verification_documents=verification_files,
         created_at=current_time,
@@ -348,8 +360,13 @@ async def join_document(
             "$addToSet": {"involved_users": current_user["user_id"]},
             "$set": {
                 "updated_at": datetime.now(timezone.utc), 
-                "status": "pending",
-                f"verification_documents.{current_user['user_id']}": verification_files
+                "status": "pending_approval",  # Document now needs approval from both users
+                f"verification_documents.{current_user['user_id']}": verification_files,
+                f"user_approvals.{current_user['user_id']}": {
+                    "approved": False,
+                    "approved_at": None,
+                    "is_primary": False
+                }
             }
         }
     )
@@ -548,16 +565,41 @@ async def approve_user_join(
             detail="User is not in the document's involved users list"
         )
     
-    # Update document status to approved
+    # Update user approval status
     await db.documents.update_one(
         {"_id": document["_id"]},
         {
             "$set": {
-                "status": "approved",
+                f"user_approvals.{user_id}.approved": True,
+                f"user_approvals.{user_id}.approved_at": datetime.now(timezone.utc),
                 "updated_at": datetime.now(timezone.utc)
             }
         }
     )
+    
+    # Check if all users have approved
+    updated_document = await db.documents.find_one({"_id": document["_id"]})
+    user_approvals = updated_document.get("user_approvals", {})
+    
+    all_approved = all(
+        approval.get("approved", False) 
+        for approval in user_approvals.values()
+    )
+    
+    if all_approved:
+        # All users approved, change status to approved and enable payment
+        await db.documents.update_one(
+            {"_id": document["_id"]},
+            {
+                "$set": {
+                    "status": "approved",
+                    "updated_at": datetime.now(timezone.utc)
+                }
+            }
+        )
+        print(f"All users approved for document {document_id}, status changed to approved")
+    else:
+        print(f"User {user_id} approved, but waiting for other users. Current status: {updated_document.get('status')}")
     
     # Get user details for response
     user = await db.users.find_one({"user_id": user_id})
@@ -565,7 +607,8 @@ async def approve_user_join(
     
     return {
         "message": f"User {user_name} approved successfully",
-        "document_status": "approved"
+        "document_status": "approved" if all_approved else "pending_approval",
+        "all_users_approved": all_approved
     }
 
 @documents_router.delete("/{document_id}/remove-user/{user_id}")
@@ -1220,6 +1263,13 @@ async def finalize_document(
     
     # Check payment status before finalization
     print(f"Checking payment status for document {document_id}")
+    
+    # Check if document is approved by all users before allowing finalization
+    if document.get("status") != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document must be approved by all users before it can be finalized"
+        )
     
     # Get payment distribution
     payment_distribution = await db.payment_distributions.find_one({"document_id": str(document["_id"])})

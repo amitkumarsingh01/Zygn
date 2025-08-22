@@ -11,7 +11,6 @@ import {
   Calendar,
   ArrowLeft,
   CheckCircle,
-
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { checkProfileCompletion } from '../utils/profileCompletion';
@@ -212,8 +211,7 @@ const DocumentCreate: React.FC = () => {
       if (verificationData.profile_pic) {
         formDataToSend.append('profile_pic', verificationData.profile_pic);
       }
-      // Send random value for thumb since it's optional
-      formDataToSend.append('thumb', 'random_thumb_value');
+      // thumb is optional and not required, so we don't send it
       if (verificationData.sign) {
         formDataToSend.append('sign', verificationData.sign);
       }

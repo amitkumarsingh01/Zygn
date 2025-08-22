@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, UserPlus, CheckCircle, UserMinus, Users, CreditCard, Calculator, DollarSign, Percent } from 'lucide-react';
-import { documentUsersAPI, paymentsAPI } from '../services/api';
+import { X, UserPlus, CheckCircle, Users, CreditCard, Calculator, User } from 'lucide-react';
+import { documentUsersAPI, paymentsAPI, documentsAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 interface User {
@@ -9,25 +9,6 @@ interface User {
   name: string;
   email: string;
   profile_pic?: string;
-}
-
-interface PaymentDistribution {
-  user_id: string;
-  percentage: number;
-  amount: number;
-}
-
-interface PaymentCalculationResponse {
-  document_id: string;
-  document_code: string;
-  document_name: string;
-  start_date?: string;
-  end_date?: string;
-  duration_days: number;
-  total_amount: number;
-  payment_status: string;
-  payment_distributions?: PaymentDistribution[];
-  can_finalize: boolean;
 }
 
 interface UserManagementModalProps {
@@ -47,19 +28,54 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({
   isPrimaryUser,
   currentUsers
 }) => {
-  const [inviteCharId, setInviteCharId] = useState('');
   const [isAdding, setIsAdding] = useState(false);
-  const [paymentData, setPaymentData] = useState<PaymentCalculationResponse | null>(null);
-
-  const [showPaymentSection, setShowPaymentSection] = useState(false);
-  const [paymentDistributions, setPaymentDistributions] = useState<PaymentDistribution[]>([]);
+  const [newUserCharId, setNewUserCharId] = useState('');
+  const [paymentData, setPaymentData] = useState<any>(null);
+  const [paymentDistributions, setPaymentDistributions] = useState<any[]>([]);
+  const [documentStatus, setDocumentStatus] = useState<string>('draft');
+  const [userApprovals, setUserApprovals] = useState<any>({});
 
   // Load payment data when modal opens
   useEffect(() => {
     if (isOpen && isPrimaryUser) {
       loadPaymentData();
+      loadDocumentStatus();
     }
   }, [isOpen, isPrimaryUser, documentId]);
+
+  // Initialize user approvals from currentUsers
+  useEffect(() => {
+    if (currentUsers.length > 0) {
+      const approvals: any = {};
+      currentUsers.forEach(user => {
+        approvals[user.user_id] = {
+          approved: user.user_id === currentUsers[0]?.user_id, // First user is primary
+          approved_at: null,
+          is_primary: user.user_id === currentUsers[0]?.user_id
+        };
+      });
+      setUserApprovals(approvals);
+    }
+  }, [currentUsers]);
+
+  const loadDocumentStatus = async () => {
+    try {
+      // Load document details to get current status and user approvals
+      const response = await documentsAPI.getDocument(documentId);
+      const documentData = response.data;
+      
+      setDocumentStatus(documentData.status || 'draft');
+      
+      // Load user approvals from document data
+      if ((documentData as any).user_approvals) {
+        setUserApprovals((documentData as any).user_approvals);
+      }
+    } catch (error: any) {
+      console.error('Error loading document status:', error);
+      // Fallback to default status
+      setDocumentStatus('draft');
+    }
+  };
 
   const loadPaymentData = async () => {
     try {
@@ -85,16 +101,16 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({
   };
 
   const handleAddUser = async () => {
-    if (!inviteCharId.trim()) {
+    if (!newUserCharId.trim()) {
       toast.error('Please enter a user ID');
       return;
     }
 
     setIsAdding(true);
     try {
-      const response = await documentUsersAPI.addUserToDocument(documentId, inviteCharId.trim());
+      const response = await documentUsersAPI.addUserToDocument(documentId, newUserCharId.trim());
       toast.success(response.data.message);
-      setInviteCharId('');
+      setNewUserCharId('');
       // Refresh payment data after adding user
       await loadPaymentData();
     } catch (error: any) {
@@ -220,15 +236,15 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({
             <div className="flex gap-3">
               <input
                 type="text"
-                value={inviteCharId}
-                onChange={(e) => setInviteCharId(e.target.value)}
+                value={newUserCharId}
+                onChange={(e) => setNewUserCharId(e.target.value)}
                 placeholder="Enter 8-character User ID (e.g., nGyOrdDx)"
                 className="flex-1 input-field"
                 maxLength={8}
               />
               <button
                 onClick={handleAddUser}
-                disabled={isAdding || !inviteCharId.trim()}
+                disabled={isAdding || !newUserCharId.trim()}
                 className="btn-primary px-6 disabled:opacity-50"
               >
                 {isAdding ? 'Adding...' : 'Add User'}
@@ -240,162 +256,76 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({
           </div>
         )}
 
-        {/* PAYMENT GATEWAY SECTION - Primary User Only */}
-        {isPrimaryUser && paymentData && (
-          <div className="mb-8 p-4 bg-green-50 rounded-lg border border-green-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                <CreditCard className="h-5 w-5 mr-2 text-green-600" />
-                Payment Gateway & Distribution
-              </h3>
-              <button
-                onClick={() => setShowPaymentSection(!showPaymentSection)}
-                className="text-green-600 hover:text-green-700 text-sm font-medium"
-              >
-                {showPaymentSection ? 'Hide Details' : 'Show Details'}
-              </button>
-            </div>
-
-            {/* Payment Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div className="bg-white p-3 rounded-lg border">
-                <div className="flex items-center">
-                  <Calculator className="h-4 w-4 text-gray-500 mr-2" />
-                  <span className="text-sm text-gray-600">Total Amount</span>
-                </div>
-                <p className="text-lg font-bold text-gray-900">₹{paymentData.total_amount}</p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border">
-                <div className="flex items-center">
-                  <DollarSign className="h-4 w-4 text-gray-500 mr-2" />
-                  <span className="text-sm text-gray-600">Duration</span>
-                </div>
-                <p className="text-lg font-bold text-gray-900">{paymentData.duration_days} days</p>
-              </div>
-              <div className="bg-white p-3 rounded-lg border">
-                <div className="flex items-center">
-                  <Percent className="h-4 w-4 text-gray-500 mr-2" />
-                  <span className="text-sm text-gray-600">Status</span>
-                </div>
-                <p className="text-lg font-bold text-gray-900 capitalize">{paymentData.payment_status}</p>
-              </div>
-            </div>
-
-            {/* Payment Distribution Details */}
-            {showPaymentSection && (
-              <div className="bg-white p-4 rounded-lg border">
-                <h4 className="font-medium text-gray-900 mb-3">Payment Distribution</h4>
-                <div className="space-y-3">
-                  {paymentDistributions.map((distribution) => {
-                    const user = currentUsers.find(u => u.user_id === distribution.user_id);
-                    return (
-                      <div key={distribution.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{user?.name || `User ${distribution.user_id.slice(0, 4)}...`}</p>
-                          <p className="text-sm text-gray-600">ID: {user?.char_id || distribution.user_id}</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.1"
-                              value={distribution.percentage}
-                              onChange={(e) => handlePaymentDistributionChange(distribution.user_id, parseFloat(e.target.value) || 0)}
-                              className="w-20 px-2 py-1 text-sm border rounded"
-                            />
-                            <span className="text-sm text-gray-600">%</span>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-gray-900">₹{distribution.amount.toFixed(2)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Payment Actions */}
-                <div className="flex gap-3 mt-4 pt-4 border-t">
-                  <button
-                    onClick={handleSetupPaymentDistribution}
-                    className="btn-primary"
-                  >
-                    Setup Distribution
-                  </button>
-                  {paymentData.payment_status === 'pending' && (
-                    <button
-                      onClick={handleMakePayment}
-                      className="btn-secondary"
-                    >
-                      Make Payment
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* CURRENT USERS SECTION - Show all users with actions */}
         <div className="mb-8">
           <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
             <Users className="h-5 w-5 mr-2 text-green-600" />
             Current Users ({currentUsers.length})
           </h3>
+          {/* User List */}
           <div className="space-y-3">
             {currentUsers.map((user) => (
-              <div
-                key={user.user_id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200"
-              >
-                <div className="flex items-center">
-                  <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center mr-3">
-                    <span className="text-gray-600 font-medium">
-                      {user.name.charAt(0).toUpperCase()}
-                    </span>
+              <div key={user.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0">
+                    {user.profile_pic ? (
+                      <img
+                        src={`https://zygn.iaks.site${user.profile_pic}`}
+                        alt={user.name}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                        <User className="h-5 w-5 text-gray-600" />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">{user.name}</p>
-                    <p className="text-sm text-gray-600">ID: {user.char_id}</p>
-                    {user.email && (
-                      <p className="text-xs text-gray-500">{user.email}</p>
-                    )}
+                    <p className="text-sm text-gray-500">ID: {user.user_id}</p>
+                    {/* Approval Status */}
+                    <div className="flex items-center space-x-2 mt-1">
+                      {userApprovals[user.user_id]?.approved ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          ✓ Approved
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          ⏳ Pending Approval
+                        </span>
+                      )}
+                      {userApprovals[user.user_id]?.is_primary && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          Primary User
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
-                {/* ACTION BUTTONS - Primary User Only */}
-                {isPrimaryUser && (
-                  <div className="flex gap-2">
-                    {/* APPROVE BUTTON */}
+                <div className="flex items-center space-x-2">
+                  {/* Only show approve button for non-primary users who haven't been approved */}
+                  {!userApprovals[user.user_id]?.is_primary && !userApprovals[user.user_id]?.approved && (
                     <button
                       onClick={() => handleApproveUser(user.user_id)}
-                      className="text-green-500 hover:text-green-700 p-2 bg-green-50 rounded-lg"
+                      className="btn-secondary px-3 py-1 text-sm"
                       title="Approve user"
                     >
-                      <CheckCircle className="h-5 w-5" />
+                      Approve
                     </button>
-                    
-                    {/* REMOVE BUTTON - Don't show for primary user */}
-                    {user.user_id !== currentUsers.find(u => u.user_id === user.user_id)?.user_id && (
-                      <button
-                        onClick={() => handleRemoveUser(user.user_id, user.name)}
-                        className="text-red-500 hover:text-red-700 p-2 bg-red-50 rounded-lg"
-                        title="Remove user"
-                      >
-                        <UserMinus className="h-5 w-5" />
-                      </button>
-                    )}
-                  </div>
-                )}
-                
-                {/* STATUS FOR SECONDARY USERS */}
-                {!isPrimaryUser && (
-                  <span className="text-xs text-blue-600 bg-blue-100 px-3 py-1 rounded-full">
-                    Active Participant
-                  </span>
-                )}
+                  )}
+                  
+                  {/* Only show remove button for non-primary users */}
+                  {!userApprovals[user.user_id]?.is_primary && (
+                    <button
+                      onClick={() => handleRemoveUser(user.user_id, user.name)}
+                      className="btn-danger px-3 py-1 text-sm"
+                      title="Remove user"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -411,6 +341,103 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({
             <p className="text-sm text-gray-700">
               You can view all users in this document but cannot add, remove, or approve users. 
               Only the primary user can manage document participants and payment distribution.
+            </p>
+          </div>
+        )}
+
+        {/* Payment Section - Only show when document is approved */}
+        {documentStatus === 'approved' && (
+          <div className="mb-8">
+            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+              <CreditCard className="h-5 w-5 mr-2 text-primary-600" />
+              Payment Management
+            </h3>
+            
+            {paymentData ? (
+              <div className="space-y-4">
+                {/* Payment calculation display */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">Payment Summary</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-blue-700">Total Amount:</span>
+                      <span className="ml-2 font-medium">₹{paymentData.total_amount}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">Duration:</span>
+                      <span className="ml-2 font-medium">{paymentData.duration_days} days</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment distribution setup */}
+                {paymentData.payment_status === 'not_setup' && (
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-gray-900">Setup Payment Distribution</h4>
+                    {paymentDistributions.map((dist) => (
+                      <div key={dist.user_id} className="flex items-center space-x-3">
+                        <span className="text-sm text-gray-600 w-24">
+                          {currentUsers.find(u => u.user_id === dist.user_id)?.name || dist.user_id}
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={dist.percentage}
+                          onChange={(e) => handlePaymentDistributionChange(dist.user_id, parseFloat(e.target.value))}
+                          className="input-field w-20 text-center"
+                        />
+                        <span className="text-sm text-gray-500">%</span>
+                        <span className="text-sm text-gray-600">
+                          ₹{dist.amount}
+                        </span>
+                      </div>
+                    ))}
+                    <button
+                      onClick={handleSetupPaymentDistribution}
+                      className="btn-primary"
+                    >
+                      Setup Payment Distribution
+                    </button>
+                  </div>
+                )}
+
+                {/* Make payment button */}
+                {paymentData.payment_status === 'distributed' && (
+                  <button
+                    onClick={handleMakePayment}
+                    className="btn-primary w-full"
+                  >
+                    Make Payment
+                  </button>
+                )}
+
+                {/* Payment status display */}
+                {paymentData.payment_status === 'completed' && (
+                  <div className="bg-green-50 p-4 rounded-lg text-center">
+                    <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-green-800 font-medium">Payment Completed!</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Calculator className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <p>Payment data not available</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Approval Required Message */}
+        {documentStatus === 'pending_approval' && (
+          <div className="mb-8 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <h3 className="text-lg font-medium text-yellow-900 mb-2 flex items-center">
+              ⏳ Approval Required
+            </h3>
+            <p className="text-sm text-yellow-700">
+              All users must approve this document before payment can be processed. 
+              Please wait for all participants to approve.
             </p>
           </div>
         )}

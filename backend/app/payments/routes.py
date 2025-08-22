@@ -277,6 +277,13 @@ async def setup_payment_distribution(
             detail="Only primary user can setup payment distribution"
         )
     
+    # Check if document is approved by all users before allowing payment setup
+    if document.get("status") != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document must be approved by all users before payment distribution can be setup"
+        )
+    
     # Validate total percentage equals 100%
     total_percentage = sum(dist.percentage for dist in payment_setup.payment_distributions)
     if abs(total_percentage - 100.0) > 0.01:  # Allow small floating point differences
@@ -442,8 +449,17 @@ async def make_document_payment(
             detail="Access denied"
         )
     
-    # Get payment distribution
-    payment_distribution = await db.payment_distributions.find_one({"document_id": str(document["_id"])})
+    # Check if document is approved by all users before allowing payment
+    if document.get("status") != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document must be approved by all users before payment can be made"
+        )
+    
+    # Check if payment distribution is setup
+    payment_distribution = await db.payment_distributions.find_one({
+        "document_id": str(document["_id"])
+    })
     
     if not payment_distribution:
         raise HTTPException(
