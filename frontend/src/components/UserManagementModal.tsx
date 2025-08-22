@@ -345,89 +345,95 @@ const UserManagementModal: React.FC<UserManagementModalProps> = ({
           </div>
         )}
 
-        {/* Payment Section - Only show when document is approved */}
-        {documentStatus === 'approved' && (
-          <div className="mb-8">
-            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-              <CreditCard className="h-5 w-5 mr-2 text-primary-600" />
-              Payment Management
-            </h3>
-            
-            {paymentData ? (
-              <div className="space-y-4">
-                {/* Payment calculation display */}
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-blue-900 mb-2">Payment Summary</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-blue-700">Total Amount:</span>
-                      <span className="ml-2 font-medium">₹{paymentData.total_amount}</span>
-                    </div>
-                    <div>
-                      <span className="text-blue-700">Duration:</span>
-                      <span className="ml-2 font-medium">{paymentData.duration_days} days</span>
-                    </div>
+        {/* Payment Section - Always show (actions gated by approval) */}
+        <div className="mb-8">
+          <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+            <CreditCard className="h-5 w-5 mr-2 text-primary-600" />
+            Payment Management
+          </h3>
+
+          {documentStatus !== 'approved' && (
+            <div className="mb-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200 text-sm text-yellow-800">
+              Document is not approved yet. All participants must approve before payments can be processed. You can review or plan the split now; actions will be enabled after approval.
+            </div>
+          )}
+
+          {paymentData ? (
+            <div className="space-y-4">
+              {/* Payment calculation display */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">Payment Summary</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-blue-700">Total Amount:</span>
+                    <span className="ml-2 font-medium">₹{paymentData.total_amount}</span>
+                  </div>
+                  <div>
+                    <span className="text-blue-700">Duration:</span>
+                    <span className="ml-2 font-medium">{paymentData.duration_days} days</span>
                   </div>
                 </div>
+              </div>
 
-                {/* Payment distribution setup */}
-                {paymentData.payment_status === 'not_setup' && (
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-gray-900">Setup Payment Distribution</h4>
-                    {paymentDistributions.map((dist) => (
-                      <div key={dist.user_id} className="flex items-center space-x-3">
-                        <span className="text-sm text-gray-600 w-24">
-                          {currentUsers.find(u => u.user_id === dist.user_id)?.name || dist.user_id}
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={dist.percentage}
-                          onChange={(e) => handlePaymentDistributionChange(dist.user_id, parseFloat(e.target.value))}
-                          className="input-field w-20 text-center"
-                        />
-                        <span className="text-sm text-gray-500">%</span>
-                        <span className="text-sm text-gray-600">
-                          ₹{dist.amount}
-                        </span>
-                      </div>
-                    ))}
-                    <button
-                      onClick={handleSetupPaymentDistribution}
-                      className="btn-primary"
-                    >
-                      Setup Payment Distribution
-                    </button>
-                  </div>
-                )}
-
-                {/* Make payment button */}
-                {paymentData.payment_status === 'distributed' && (
+              {/* Payment distribution setup */}
+              {paymentData.payment_status === 'not_setup' && (
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-900">Setup Payment Distribution</h4>
+                  {paymentDistributions.map((dist) => (
+                    <div key={dist.user_id} className="flex items-center space-x-3">
+                      <span className="text-sm text-gray-600 w-24">
+                        {currentUsers.find(u => u.user_id === dist.user_id)?.name || dist.user_id}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={dist.percentage}
+                        onChange={(e) => handlePaymentDistributionChange(dist.user_id, parseFloat(e.target.value))}
+                        className="input-field w-20 text-center"
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                      <span className="text-sm text-gray-600">
+                        ₹{dist.amount}
+                      </span>
+                    </div>
+                  ))}
                   <button
-                    onClick={handleMakePayment}
-                    className="btn-primary w-full"
+                    onClick={handleSetupPaymentDistribution}
+                    disabled={documentStatus !== 'approved'}
+                    className={`btn-primary ${documentStatus !== 'approved' ? 'disabled:opacity-50' : ''}`}
                   >
-                    Make Payment
+                    {documentStatus !== 'approved' ? 'Setup after approval' : 'Setup Payment Distribution'}
                   </button>
-                )}
+                </div>
+              )}
 
-                {/* Payment status display */}
-                {paymentData.payment_status === 'completed' && (
-                  <div className="bg-green-50 p-4 rounded-lg text-center">
-                    <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                    <p className="text-green-800 font-medium">Payment Completed!</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Calculator className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p>Payment data not available</p>
-              </div>
-            )}
-          </div>
-        )}
+              {/* Make payment button */}
+              {paymentData.payment_status === 'distributed' && (
+                <button
+                  onClick={handleMakePayment}
+                  disabled={documentStatus !== 'approved'}
+                  className={`btn-primary w-full ${documentStatus !== 'approved' ? 'disabled:opacity-50' : ''}`}
+                >
+                  {documentStatus !== 'approved' ? 'Make Payment (after approval)' : 'Make Payment'}
+                </button>
+              )}
+
+              {/* Payment status display */}
+              {paymentData.payment_status === 'completed' && (
+                <div className="bg-green-50 p-4 rounded-lg text-center">
+                  <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                  <p className="text-green-800 font-medium">Payment Completed!</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <Calculator className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p>Payment data not available</p>
+            </div>
+          )}
+        </div>
 
         {/* Approval Required Message */}
         {documentStatus === 'pending_approval' && (

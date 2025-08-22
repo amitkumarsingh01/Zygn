@@ -43,11 +43,35 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://zygn.vercel.app",
+        "https://zygn-git-main-aksml.vercel.app", 
+        "https://zygn-aksml.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "*"  # Keep wildcard for development
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
+
+# Additional CORS handling
+@app.options("/{full_path:path}")
+async def options_handler():
+    return {"message": "CORS preflight handled"}
+
+@app.middleware("http")
+async def add_cors_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
 
 # Note: We avoid custom multipart middleware to keep compatibility across Starlette versions.
 
@@ -70,6 +94,18 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.get("/test-cors")
+async def test_cors():
+    return {
+        "message": "CORS test endpoint",
+        "cors_enabled": True,
+        "allowed_origins": [
+            "https://zygn.vercel.app",
+            "https://zygn-git-main-aksml.vercel.app",
+            "https://zygn-aksml.vercel.app"
+        ]
+    }
 
 if __name__ == "__main__":
     import uvicorn
